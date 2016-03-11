@@ -11,18 +11,20 @@ filenames = os.listdir(testdir)
 
 wellDict = filenamesToDict(filenames)
 
-for k in wellDict.keys():
-    ncols = wellDict[k]['ncols']
-    nrows = wellDict[k]['nrows']
-    outWidth = xpix*ncols
-    outHeight = ypix*nrows
-    arr = np.empty((nTimepoints, outWidth, outHeight), dtype=pixType)
+def stitchWells(wellDict):
+    for well in wellDict.keys():
+        ncols = wellDict[well]['ncols']
+        nrows = wellDict[well]['nrows']
+        outWidth = xpix*ncols
+        outHeight = ypix*nrows
+        outArray = np.empty((nTimepoints, outWidth, outHeight), dtype=pixType)
 
-    for c in range(ncols):
-        for r in range(nrows):
-            startX = (ncols-c-1)*xpix
-            startY = r*ypix
-            inArray = skimage.io.imread(testdir+"/"+wellDict[k]['positions'][(r,c)])
-            arr[:, startY:(startY+ypix), startX:(startX+xpix)] = inArray
+        for c in range(ncols):
+            for r in range(nrows):
+                startX = (ncols-c-1)*xpix
+                startY = r*ypix
+                inArray = skimage.io.imread(testdir+"/"+wellDict[well]['positions'][(r,c)])
+                outArray[:, startY:(startY+ypix), startX:(startX+xpix)] = inArray
+    return outArray
 
-skimage.io.imsave(testdir+"/"+str(k)+".tif",arr)
+skimage.io.imsave(testdir+"/"+str(k)+".tif", stitchWells(wellDict))
