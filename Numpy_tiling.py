@@ -6,14 +6,14 @@ import skimage.io
 import time
 from matplotlib import pyplot as plt
 
-xpix, ypix, nTimepoints, pixType = 512, 512, 524, "uint16"
+xpix, ypix, nTimepoints, pixType = 128, 128, 524, "uint16"
 #testdir = "/Volumes/HDD/Huygens_SYNC/_SYNC/CollectiveMigrationAnalysis/Examplemovies/160304_well13_128x128"
-indir=r"O:\Jens\160304 peprocess"
+indir=r"O:\Jens\160304_preprocess_small"
 outdir=r"O:\Jens\160304_processed"
 filenames = os.listdir(indir)
 
 wellDict = filenamesToDict(filenames)
-wellDict1 = {wellDict.keys()[0]: wellDict[wellDict.keys()[0]]}
+wellDict1 = {wellDict.keys()[2]: wellDict[wellDict.keys()[2]]}
 
 def stitchWells(wellDict, inputDir, outputDir):
     for well in wellDict.keys():
@@ -23,10 +23,10 @@ def stitchWells(wellDict, inputDir, outputDir):
         nrows = wellDict[well]['nrows']
         outWidth = xpix*ncols
         outHeight = ypix*nrows
-        outArray = np.empty((nTimepoints, outWidth, outHeight), dtype=pixType)
-
-        for c in range(ncols):
-            for r in range(nrows):
+        outArray = np.empty((nTimepoints, outHeight, outWidth), dtype=pixType)
+        print("well array shape:", outArray.shape)
+        for r in range(nrows):
+            for c in range(ncols):
                 startX = (ncols-c-1)*xpix
                 startY = r*ypix
                 loadme = os.path.join(inputDir, wellDict[well]['positions'][(r,c)])
@@ -37,6 +37,7 @@ def stitchWells(wellDict, inputDir, outputDir):
         saveme=os.path.join(outputDir, str(well)+"_stitched.tif")
         skimage.io.imsave(saveme, outArray)
         print("Done with wellID: ", well, "in ", round(time.time()-t0,2), " s")
+
 
 
 

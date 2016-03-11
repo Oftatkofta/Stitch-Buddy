@@ -65,8 +65,9 @@ def filenamesToDict(filenames, useBioformats=False):
         if wellDict.get(wellID) == None:
             wellDict[wellID] = {'nrows':1,
                                 'ncols':1,
-                                'xpix':0,
-                                'ypix':0,
+                                'xpix':512,
+                                'ypix':512,
+                                'timepoints':524,
                                 'dT':0,
                                 'timeunit':None,
                                 'pixres':0,
