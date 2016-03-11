@@ -63,8 +63,8 @@ def filenamesToDict(filenames, useBioformats=False):
 
         #If there is no key for wellID in wellDict -> create a dict of properties
         if wellDict.get(wellID) == None:
-            wellDict[wellID] = {'nrows':0,
-                                'ncols':0,
+            wellDict[wellID] = {'nrows':1,
+                                'ncols':1,
                                 'xpix':0,
                                 'ypix':0,
                                 'dT':0,
