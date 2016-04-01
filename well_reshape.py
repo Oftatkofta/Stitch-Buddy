@@ -1,14 +1,20 @@
 from __future__ import print_function, division, absolute_import
 import re
+import skimage.io
+import os
 import cPickle as pickle
 
-with open("filenames.txt",'r') as f:
-    filenames = f.read()
+#with open("filenames.txt",'r') as f:
+#    filenames = f.read()
 
-filenames = filenames.split("f1")
+#filenames = filenames.split("f1")
+
+indir=r"O:\SYNC with anlysis\160321 scratch_factors"
+outdir=r"O:\SYNC with anlysis\160321 scratch_factors_out"
+filenames = os.listdir(indir)
 
 
-def filenamesToDict(filenames, useBioformats=False):
+def filenamesToDict(indir, filenames, useBioformats=False):
     """
     Transforms a list of filenames into a dictionary.
 
@@ -21,6 +27,7 @@ def filenamesToDict(filenames, useBioformats=False):
 
     property_dict = 'nrows': (int) No. of rows in well
                     'ncols': (int) No. of columns in well
+                    'nChans': (int) No. of channels in image, defaults to 1
                     'xpix': (int) No. pixels in X-dimension of images
                     'ypix': (int) No. pixels in Y-dimension of images
                     'dT': (float) No. of time units between frames
@@ -54,7 +61,13 @@ def filenamesToDict(filenames, useBioformats=False):
 
     #Matches three digits preceded by "_" and followed by "_"
     row_regex = re.compile("(?<=_)\d{3}(?=_)")
-
+    first_file = skimage.io.imread(os.path.join(indir,filenames[0]))
+    if first_file.ndim >3:
+        nTimepoints, nChannels, ypix, xpix = first_file.shape
+    else:
+        nTimepoints, ypix, xpix = first_file.shape
+        nChannels = 1
+    pixelType = first_file.dtype
     for f in filenames:
         #Extract positioning information from filename with regex
         wellID = int(well_regex.search(f).group())
@@ -65,13 +78,14 @@ def filenamesToDict(filenames, useBioformats=False):
         if wellDict.get(wellID) == None:
             wellDict[wellID] = {'nrows':1,
                                 'ncols':1,
-                                'xpix':512,
-                                'ypix':512,
-                                'timepoints':524,
+                                'nChannels':int(nChannels),
+                                'xpix':int(xpix),
+                                'ypix':int(ypix),
+                                'timepoints':int(nTimepoints),
                                 'dT':0,
                                 'timeunit':None,
                                 'pixres':0,
-                                'pixelType':None,
+                                'pixelType':str(pixelType),
                                 'positions':{},
                                 'files':[]
                                 }
@@ -89,3 +103,6 @@ def filenamesToDict(filenames, useBioformats=False):
     return wellDict
 
 
+wellDict = filenamesToDict(indir, filenames)
+for well in wellDict.keys():
+    print(well, wellDict[well])
