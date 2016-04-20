@@ -9,9 +9,11 @@ import cPickle as pickle
 
 #filenames = filenames.split("f1")
 
-indir=r"O:\SYNC with anlysis\160321 scratch_factors"
-outdir=r"O:\SYNC with anlysis\160321 scratch_factors_out"
-filenames = os.listdir(indir)
+indir=r"/Volumes/HDD/Huygens_SYNC/160321_HaCaT-H2B_12well_Factors-scratch_T0_1h_1"
+outdir=r"/Users/jens_e/Desktop/Python_laboratory/Stitchhack"
+
+#Ingore non-.tif files in indir
+filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
 
 
 def filenamesToDict(indir, filenames, useBioformats=False):
@@ -47,7 +49,7 @@ def filenamesToDict(indir, filenames, useBioformats=False):
     if useBioformats:
         import javabridge as jb
         import bioformats as bf
-        jb.start_vm(class_path=bf.JARS, run_headless=True)
+        jb.start_vm(class_path=bf.JARS, max_heap_size="2G", run_headless=True)
 
     wellDict = {}
 
@@ -99,6 +101,10 @@ def filenamesToDict(indir, filenames, useBioformats=False):
 
         #Dict with (row, column):filename
         wellDict[wellID]['positions'][(rowNumber, columnNumber)]=f
+
+    #Kills the JVM if in use
+    if useBioformats:
+        jb.kill_vm()
 
     return wellDict
 
