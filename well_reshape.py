@@ -9,7 +9,7 @@ import cPickle as pickle
 
 #filenames = filenames.split("f1")
 
-indir=r"/Volumes/HDD/Huygens_SYNC/160321_HaCaT-H2B_12well_Factors-scratch_T0_1h_1"
+indir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/2Z_2C_2x2gridx2_2T_2"
 outdir=r"/Users/jens_e/Desktop/Python_laboratory/Stitchhack"
 
 #Ingore non-.tif files in indir
@@ -29,7 +29,7 @@ def filenamesToDict(indir, filenames, useBioformats=False):
 
     property_dict = 'nrows': (int) No. of rows in well
                     'ncols': (int) No. of columns in well
-                    'nChans': (int) No. of channels in image, defaults to 1
+                    'nChans': (int) No. of channels in image
                     'xpix': (int) No. pixels in X-dimension of images
                     'ypix': (int) No. pixels in Y-dimension of images
                     'dT': (float) No. of time units between frames
@@ -50,9 +50,15 @@ def filenamesToDict(indir, filenames, useBioformats=False):
         import javabridge as jb
         import bioformats as bf
         jb.start_vm(class_path=bf.JARS, max_heap_size="2G", run_headless=True)
+        xmlmetadata = bf.get_omexml_metadata(os.path.join(indir,filenames[0])).encode(errors='ignore')
+        metadata.dom = ElementTree.ElementTree(ElementTree.fromstring(xml))
+        metadata = bf.OMEXML(xmlmetadata)
+
 
     wellDict = {}
-
+    nTimepoints = metadata.image().Pixels.get_SizeT()
+    nChannels = metadata.image().Pixels.get_SizeC()
+    print(metadata.image().Name, metadata.image().Pixels)
     #Regex used to flexibly identify wells, rows, and columns from filenames
 
     #Matches any number of digits preceded by "_" and followed by "-"
@@ -64,12 +70,21 @@ def filenamesToDict(indir, filenames, useBioformats=False):
     #Matches three digits preceded by "_" and followed by "_"
     row_regex = re.compile("(?<=_)\d{3}(?=_)")
     first_file = skimage.io.imread(os.path.join(indir,filenames[0]))
-    if first_file.ndim >3:
+
+    print(first_file.shape)
+
+    if first_file.ndim == 4:
         nTimepoints, nChannels, ypix, xpix = first_file.shape
+
+    if first_file.ndim == 5:
+        test, nTimepoints, nChannels, ypix, xpix = first_file.shape
+
     else:
         nTimepoints, ypix, xpix = first_file.shape
         nChannels = 1
+
     pixelType = first_file.dtype
+
     for f in filenames:
         #Extract positioning information from filename with regex
         wellID = int(well_regex.search(f).group())
@@ -109,6 +124,6 @@ def filenamesToDict(indir, filenames, useBioformats=False):
     return wellDict
 
 
-wellDict = filenamesToDict(indir, filenames)
-for well in wellDict.keys():
-    print(well, wellDict[well])
+wellDict = filenamesToDict(indir, filenames, True)
+#for well in wellDict.keys():
+#    print(well, wellDict[well])
