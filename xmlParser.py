@@ -6,6 +6,7 @@ import re
 #import xml.etree.ElementTree
 from xml.etree import cElementTree as ET
 import skimage.external.tifffile as tiffile
+
 import skimage.io
 import matplotlib.pyplot as plt
 
@@ -35,18 +36,18 @@ def get_namespaces(node):
 
 
 
-jb.start_vm(class_path=bf.JARS, max_heap_size="2G", run_headless=True)
-xmlmetadata = bf.get_omexml_metadata(ij_testfile).encode(errors='xmlcharrefreplace')
+#jb.start_vm(class_path=bf.JARS, max_heap_size="2G", run_headless=True)
+#xmlmetadata = bf.get_omexml_metadata(ij_testfile).encode(errors='xmlcharrefreplace')
 
-tree = ET.fromstring(xmlmetadata)
+#tree = ET.fromstring(xmlmetadata)
 
 #print(tree.tag)
 #print(tree.attrib)
 
-print(tree[0][1].attrib)
+#print(tree[0][1].attrib)
 
-for node in tree:
-    print(node)
+#for node in tree:
+#    print(node)
 
 #for child in tree.iter():
     #print(split_qn(child.tag), child.attrib)
@@ -54,11 +55,11 @@ for node in tree:
     #name = country.get('name')
     #print name, rank
 
-jb.kill_vm()
+#jb.kill_vm()
 
 with tiffile.TiffFile(mm_testfile) as tif:
     mm_data = tif.asarray()
-    print(tif.micromanager_metadata)
+    print(tif.micromanager_metadata['summary']['WaitInterval']) #Gets the frame interval in ms
     print(tif.pages)
     print(tif.series)
     print(tif.is_imagej, tif.is_micromanager, tif.is_ome, tif.is_bigtiff)
