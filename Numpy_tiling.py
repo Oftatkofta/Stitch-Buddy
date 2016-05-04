@@ -1,5 +1,5 @@
 from __future__ import print_function, division, absolute_import
-from well_reshape import filenamesToDict
+from frankenScope_well_reshape import filenamesToDict
 import os
 import numpy as np
 import skimage.io
@@ -8,9 +8,11 @@ from matplotlib import pyplot as plt
 
 #xpix, ypix, nTimepoints, pixType = 256, 256, 406, "uint8"
 #testdir = "/Volumes/HDD/Huygens_SYNC/_SYNC/CollectiveMigrationAnalysis/Examplemovies/160304_well13_128x128"
-indir=r"O:\SYNC with anlysis\160321 scratch_factors"
-outdir=r"O:\SYNC with anlysis\160321 scratch_factors_out"
-filenames = os.listdir(indir)
+indir=r"O:\temp"
+outdir=r"O:\tempout"
+filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
+
+
 
 wellDict = filenamesToDict(indir, filenames)
 wellDict1 = {wellDict.keys()[0]: wellDict[wellDict.keys()[0]]}
@@ -54,12 +56,18 @@ def stitchWells(wellDict, inputDir, outputDir):
             for c in range(ncols):
                 startX = (ncols-c-1)*xpix
                 startY = r*ypix
-                loadme = os.path.join(inputDir, wellDict[well]['positions'][(r,c)])
-                print("Working on...", loadme)
-                inArray = skimage.io.imread(loadme)
-                #inArray = flatfileld_correction(inArray, flatfield_image)
-                outArray[:,:, startY:(startY+ypix), startX:(startX+xpix)] = inArray
+                inArray = np.empty((0, nChans, ypix, xpix), dtype=pixType)
+                for f in wellDict[well]['positions'][(r,c)]:
+                    loadme = os.path.join(inputDir, f)
+                    print("Working on...", loadme)
+                    inArray = np.concatenate((inArray,skimage.io.imread(loadme))
 
+                #inArray = flatfileld_correction(inArray, flatfield_image)
+                try:
+                    outArray[:,:, startY:(startY+ypix), startX:(startX+xpix)] = inArray
+                except:
+                    inArray = np.reshape(inArray, (nTimepoints, nChans, xpix, ypix))
+                    outArray[:, :, startY:(startY + ypix), startX:(startX + xpix)] = inArray
         saveme=os.path.join(outputDir, str(well)+"_stitched.tif")
         skimage.io.imsave(saveme, outArray, plugin='tifffile', metadata={'axes': 'TCYX'})
         print("Done with wellID: ", well, "in ", round(time.time()-t0,2), " s")
