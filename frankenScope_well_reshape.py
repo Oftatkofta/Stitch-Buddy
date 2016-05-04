@@ -1,19 +1,19 @@
 from __future__ import print_function, division, absolute_import
 import re
-import skimage.io
 import os
-import cPickle as pickle
+import Stitchit.Stitchit.tiffile as tiffile
 
 #with open("filenames.txt",'r') as f:
 #    filenames = f.read()
 
 #filenames = filenames.split("f1")
 
-indir=indir=r"O:\temp"
-outdir=r"O:\tempout"
+#indir=indir=r"O:\Anna L\160503_NB4_import_with_18mm_glass_2"
+#indir=indir=r"O:\temp"
+#outdir=r"O:\tempout"
 
 #Ingore non-.tif files in indir
-filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
+#filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
 
 
 def filenamesToDict(indir, filenames):
@@ -65,24 +65,22 @@ def filenamesToDict(indir, filenames):
     #Matches a digit preceded by three digits and "_", followed by ".ome"
     concat_regex = re.compile("(?<=\d{3}_\d{3}_)\d(?=\.ome)")
 
-    first_file = skimage.io.imread(os.path.join(indir,filenames[0]))
+    first_file = os.path.join(indir, filenames[0])
 
-    print(first_file.shape)
+    with tiffile.TiffFile(first_file) as tif:
+        meta_data = tif.micromanager_metadata
+        page=tif[0]
+        pixres=page.tags['x_resolution']
+        pixelType = page.dtype
 
-    if first_file.ndim == 4:
-        nTimepoints, nChannels, ypix, xpix = first_file.shape
 
-    if first_file.ndim == 5:
-        test, nTimepoints, nChannels, ypix, xpix = first_file.shape
+    #print(meta_data['summary'])
+    #print(meta_data['summary']['Frames'])
+    dT = meta_data['summary']['WaitInterval']
+    ypix, xpix = meta_data['summary']['Height'], meta_data['summary']['Width']
+    nChannels =  meta_data['summary']['Channels']
+    nTimepoints = meta_data['summary']['Frames']
 
-    else:
-        try:
-            nTimepoints, nChannels, ypix, xpix = first_file.shape
-        except:
-            nTimepoints, ypix, xpix = first_file.shape
-            nChannels = 1
-
-    pixelType = first_file.dtype
 
     for f in filenames:
         #Extract positioning information from filename with regex
@@ -101,9 +99,9 @@ def filenamesToDict(indir, filenames):
                                 'xpix':int(xpix),
                                 'ypix':int(ypix),
                                 'timepoints':int(nTimepoints),
-                                'dT':0,
-                                'timeunit':None,
-                                'pixres':0,
+                                'dT':dT,
+                                'timeunit':'ms',
+                                'pixres':pixres,
                                 'pixelType':str(pixelType),
                                 'positions':{},
                                 'files':[],
@@ -126,6 +124,6 @@ def filenamesToDict(indir, filenames):
     return wellDict
 
 
-wellDict = filenamesToDict(indir, filenames)
-for well in wellDict.keys():
-    print(well, wellDict[well]['positions'])
+# wellDict = filenamesToDict(indir, filenames)
+# for well in wellDict.keys():
+#     print(well, wellDict[well]['positions'])
