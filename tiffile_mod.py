@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 # tifffile.py
 
+#Slightly modified by Jens Eriksson at Advanced Light Microscopy facility Gaustad, Rikshospitalet, Oslo, Norway
+
 # Copyright (c) 2008-2016, Christoph Gohlke
 # Copyright (c) 2008-2016, The Regents of the University of California
 # Produced at the Laboratory for Fluorescence Dynamics
@@ -261,16 +263,17 @@ except ImportError:
     except ImportError:
         lzma = None
 
-try:
-    if __package__:
-        from . import _tifffile
-    else:
-        import _tifffile
-except ImportError:
-    warnings.warn(
-        "failed to import the optional _tifffile C extension module.\n"
-        "Loading of some compressed images will be very slow.\n"
-        "Tifffile.c can be obtained at http://www.lfd.uci.edu/~gohlke/")
+#Unused, since we only wrire uncompressed ImageJ-tiffs
+# try:
+#     if __package__:
+#         from . import _tifffile
+#     else:
+#         import _tifffile
+# except ImportError:
+#     warnings.warn(
+#         "failed to import the optional _tifffile C extension module.\n"
+#         "Loading of some compressed images will be very slow.\n"
+#         "Tifffile.c can be obtained at http://www.lfd.uci.edu/~gohlke/")
 
 
 __version__ = '2016.04.18'
@@ -458,7 +461,7 @@ class TiffWriter(object):
             'contig': last dimension contains samples.
             'planar': third last dimension contains samples.
         resolution : (float, float) or ((int, int), (int, int))
-            X and Y resolution in dots per inch as float or rational numbers.
+            X and Y resolution in pixels per cm as float or rational numbers.
         compress : int or 'lzma'
             Values from 0 to 9 controlling the level of zlib compression.
             If 0, data are written uncompressed (default).
@@ -836,7 +839,7 @@ class TiffWriter(object):
         if resolution:
             addtag('x_resolution', '2I', 1, rational(resolution[0]))
             addtag('y_resolution', '2I', 1, rational(resolution[1]))
-            addtag('resolution_unit', 'H', 1, 2)
+            addtag('resolution_unit', 'H', 1, 3) #Changed to cm
         if not tile:
             addtag('rows_per_strip', 'I', 1, shape[-3])  # * shape[-4]
 
@@ -3959,9 +3962,11 @@ def imagej_description(shape, rgb=None, colormaped=False, version='1.11a',
     loop=false
 
     """
+    zStack = kwargs['zStack']
+    del kwargs['zStack']
     if colormaped:
         raise NotImplementedError("ImageJ colormapping not supported")
-    shape = imagej_shape(shape, rgb=rgb)
+    shape = imagej_shape(shape, rgb=rgb, zStack=zStack)
     rgb = shape[-1] in (3, 4)
 
     result = ['ImageJ=%s' % version]
@@ -3993,9 +3998,9 @@ def imagej_description(shape, rgb=None, colormaped=False, version='1.11a',
     return str2bytes('\n'.join(result + append + ['']))
 
 
-def imagej_shape(shape, rgb=None):
+def imagej_shape(shape, rgb=None, zStack=False):
     """Return shape normalized to 6D ImageJ hyperstack TZCYXS.
-
+    Defaults to no Z-stack, i.e. Z=1
     Raise ValueError if not a valid ImageJ hyperstack shape.
 
     >>> imagej_shape((2, 3, 4, 5, 3), False)
@@ -4014,8 +4019,10 @@ def imagej_shape(shape, rgb=None):
         raise ValueError("invalid ImageJ hyperstack: not a non-RGB image")
     if rgb or shape[-1] == 1:
         return (1, ) * (6 - ndim) + shape
-    else:
+    if zStack or ndim == 2:
         return (1, ) * (5 - ndim) + shape + (1,)
+    else:
+        return (shape[0], ) + (1,) * (5 - ndim) + shape[1:] + (1,)
 
 
 def image_description_dict(description):

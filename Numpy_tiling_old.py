@@ -1,5 +1,5 @@
 from __future__ import print_function, division, absolute_import
-from frankenScope_well_reshape import filenamesToDict
+from frankenScope_well_reshape_old import filenamesToDict
 import os
 import numpy as np
 import skimage.io
@@ -9,8 +9,8 @@ from matplotlib import pyplot as plt
 
 #xpix, ypix, nTimepoints, pixType = 256, 256, 406, "uint8"
 #testdir = "/Volumes/HDD/Huygens_SYNC/_SYNC/CollectiveMigrationAnalysis/Examplemovies/160304_well13_128x128"
-indir=r"O:\Jens\160408_HaCaT-H2B_12well_Calcium_T0_1h_2"
-outdir=r"O:\temp"
+indir=r"O:\temp"
+outdir=r"O:\tempout"
 filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
 
 
@@ -46,11 +46,9 @@ def stitchWells(wellDict, inputDir, outputDir):
         print("Starting on wellID:", well)
         ncols = wellDict[well]['ncols']
         nrows = wellDict[well]['nrows']
-        nChans, nTimepoints = wellDict[well]['nChannels'], wellDict[well]['nTimepoints']
-        nSlices = wellDict[well]['nSlices']
-        frame_interval, time_unit  = wellDict[well]['frame_interval'], wellDict[well]['timeunit']
+        nChans, nTimepoints = wellDict[well]['nChannels'], wellDict[well]['timepoints']
         pixType = wellDict[well]['pixelType']
-        xpix, ypix, pixel_resolution = wellDict[well]['xpix'], wellDict[well]['ypix'], wellDict[well]['pixel_resolution']
+        xpix, ypix = wellDict[well]['xpix'], wellDict[well]['ypix']
         outWidth = xpix*ncols
         outHeight = ypix*nrows
         outArray = np.empty((nTimepoints, nChans, outHeight, outWidth), dtype=pixType)
@@ -59,8 +57,7 @@ def stitchWells(wellDict, inputDir, outputDir):
             for c in range(ncols):
                 startX = (ncols-c-1)*xpix
                 startY = r*ypix
-                loadme = os.path.join(inputDir, wellDict[well]['positions'][(r,c)][0])
-                print("Working on: ", str(loadme))
+                loadme = os.path.join(inputDir, wellDict[well]['positions'][(r,c)])
                 with tiffile.TiffFile(loadme) as tif:
                     inArray = tif.asarray()
                 try:
@@ -69,21 +66,7 @@ def stitchWells(wellDict, inputDir, outputDir):
                     inArray = np.reshape(inArray, (nTimepoints, nChans, xpix, ypix))
                     outArray[:, :, startY:(startY + ypix), startX:(startX + xpix)] = inArray
         saveme=os.path.join(outputDir, str(well)+"_stitched.tif")
-
-        bigTiffFlag = outArray.size * outArray.dtype.itemsize > 2000 * 2 ** 20
-
-        metadata = {"zStack" : bool(1-nSlices),
-                    "unit":"cm",
-                    "finterval" : frame_interval,
-                    "tunit" : time_unit
-                    }
-
-        save_data = {"bigtiff" : bigTiffFlag,
-                    "imagej" : True,
-                    "resolution" : (pixel_resolution, pixel_resolution),
-                    "metadata" : metadata
-                    }
-        tiffile.imsave(saveme, outArray, **save_data)
+        skimage.io.imsave(saveme, outArray, plugin='tifffile', metadata={'axes': 'TCYX'})
         print("Done with wellID: ", well, "in ", round(time.time()-t0,2), " s")
 
 def getFlatfieldWells(wellDict, inputDir, outputDir):

@@ -1,19 +1,19 @@
 from __future__ import print_function, division, absolute_import
 import re
 import os
-import Stitchit.Stitchit.tiffile as tiffile
+import Stitchit.Stitchit.tiffile_mod as tiffile
 
 #with open("filenames.txt",'r') as f:
 #    filenames = f.read()
 
 #filenames = filenames.split("f1")
 
-#indir=indir=r"O:\Anna L\160503_NB4_import_with_18mm_glass_2"
+indir=indir=r"O:\Anna L\160503_NB4_import_with_18mm_glass_2"
 #indir=indir=r"O:\temp"
-#outdir=r"O:\tempout"
+outdir=r"O:\tempout"
 
 #Ingore non-.tif files in indir
-#filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
+filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
 
 
 def filenamesToDict(indir, filenames):
@@ -31,7 +31,7 @@ def filenamesToDict(indir, filenames):
                     'nChans': (int) No. of channels in image
                     'xpix': (int) No. pixels in X-dimension of images
                     'ypix': (int) No. pixels in Y-dimension of images
-                    'dT': (float) No. of time units between frames
+                    'frame_interval': (float) No. of time units between frames
                     'timeUnit': (str) time unit
                     'pixres': (float) size of pixels in resolution units
                     'resUnit': (str) spatial resolution unit
@@ -70,18 +70,19 @@ def filenamesToDict(indir, filenames):
     with tiffile.TiffFile(first_file) as tif:
         meta_data = tif.micromanager_metadata
         page=tif[0]
-        pixres=page.tags['x_resolution']
+        pixres=page.tags['x_resolution'].value
+        resoloution_unit = page.tags['resolution_unit'].value
         pixelType = page.dtype
 
 
     #print(meta_data['summary'])
     #print(meta_data['summary']['Frames'])
-    dT = meta_data['summary']['WaitInterval']
+    frame_interval = meta_data['summary']['WaitInterval']
     ypix, xpix = meta_data['summary']['Height'], meta_data['summary']['Width']
     nChannels =  meta_data['summary']['Channels']
     nTimepoints = meta_data['summary']['Frames']
-
-
+    nSlices =  meta_data['summary']['Slices']
+    resoloution_unit =  {1: 'none', 2: 'inch', 3: 'centimeter'}[resoloution_unit]
     for f in filenames:
         #Extract positioning information from filename with regex
         wellID = int(well_regex.search(f).group())
@@ -96,16 +97,18 @@ def filenamesToDict(indir, filenames):
             wellDict[wellID] = {'nrows':1,
                                 'ncols':1,
                                 'nChannels':int(nChannels),
+                                'nSlices': int(nSlices),
                                 'xpix':int(xpix),
                                 'ypix':int(ypix),
-                                'timepoints':int(nTimepoints),
-                                'dT':dT,
+                                'nTimepoints':int(nTimepoints),
+                                'frame_interval':frame_interval,
                                 'timeunit':'ms',
-                                'pixres':pixres,
+                                'pixel_resolution':pixres[0]/float(pixres[1]), #resolution stored as rational in tif tag
+                                'resoloution_unit': resoloution_unit,
                                 'pixelType':str(pixelType),
                                 'positions':{},
                                 'files':[],
-                                'isConcat': isConcat
+                                'isConcat':isConcat
                                 }
 
         #Populate Properties
@@ -124,6 +127,6 @@ def filenamesToDict(indir, filenames):
     return wellDict
 
 
-# wellDict = filenamesToDict(indir, filenames)
-# for well in wellDict.keys():
-#     print(well, wellDict[well]['positions'])
+wellDict = filenamesToDict(indir, filenames)
+#for well in wellDict.keys():
+#    print(well, wellDict[well])
