@@ -4009,6 +4009,8 @@ def imagej_shape(shape, rgb=None, zStack=False):
     """
     shape = tuple(int(i) for i in shape)
     ndim = len(shape)
+    if ndim == 6:
+        return shape
     if 1 > ndim > 6:
         raise ValueError("invalid ImageJ hyperstack: not 2 to 6 dimensional")
     if rgb is None:

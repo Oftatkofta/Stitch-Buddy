@@ -8,9 +8,9 @@ import Stitchit.Stitchit.tiffile_mod as tiffile
 
 #filenames = filenames.split("f1")
 
-indir=indir=r"O:\Anna L\160503_NB4_import_with_18mm_glass_2"
+indir=r"O:\Anna L\160512_NB4_import_2x2_greenFilter_18mm_glass_2x_Texp _1"
 #indir=indir=r"O:\temp"
-outdir=r"O:\tempout"
+#outdir=r"O:\temp"
 
 #Ingore non-.tif files in indir
 filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
@@ -62,25 +62,33 @@ def filenamesToDict(indir, filenames):
     #Matches three digits preceded by three digits and "_"
     row_regex = re.compile("(?<=_)\d{3}(?=_)")
 
+    #Matches the string "Frameindex: " preceeding any number of digits
+    nTimepoints_regex = re.compile("(?<=FrameIndex: )\d+")
+
     #Matches a digit preceded by three digits and "_", followed by ".ome"
-    concat_regex = re.compile("(?<=\d{3}_\d{3}_)\d(?=\.ome)")
+    #concat_regex = re.compile("(?<=* FrameIndex: )\d+")
 
     first_file = os.path.join(indir, filenames[0])
 
     with tiffile.TiffFile(first_file) as tif:
         meta_data = tif.micromanager_metadata
-        page=tif[0]
-        pixres=page.tags['x_resolution'].value
-        resoloution_unit = page.tags['resolution_unit'].value
-        pixelType = page.dtype
+        last_page=tif[-2]
+        pixres=last_page.tags['x_resolution'].value
+        resoloution_unit = last_page.tags['resolution_unit'].value
+        pixelType = last_page.dtype
 
+        mm_metadata_tag = last_page.tags['micromanager_metadata'].value
+        #print(mm_metadata_tag["FrameIndex"])
+        print(last_page.tags["micromanager_metadata"].value)
+        #print(page.tags["image_description"].value)
+        #for tag in last_page.tags.values():
 
-    #print(meta_data['summary'])
-    #print(meta_data['summary']['Frames'])
+        #    print(tag.name, tag.value)
+
     frame_interval = meta_data['summary']['WaitInterval']
     ypix, xpix = meta_data['summary']['Height'], meta_data['summary']['Width']
     nChannels =  meta_data['summary']['Channels']
-    nTimepoints = meta_data['summary']['Frames']
+    nTimepoints = int(mm_metadata_tag["FrameIndex"])+1
     nSlices =  meta_data['summary']['Slices']
     resoloution_unit =  {1: 'none', 2: 'inch', 3: 'centimeter'}[resoloution_unit]
     for f in filenames:

@@ -9,8 +9,8 @@ from matplotlib import pyplot as plt
 
 #xpix, ypix, nTimepoints, pixType = 256, 256, 406, "uint8"
 #testdir = "/Volumes/HDD/Huygens_SYNC/_SYNC/CollectiveMigrationAnalysis/Examplemovies/160304_well13_128x128"
-indir=r"O:\Jens\160408_HaCaT-H2B_12well_Calcium_T0_1h_2"
-outdir=r"O:\temp"
+indir=r"O:\temp"
+outdir=r"O:\tempout"
 filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
 
 
@@ -41,6 +41,7 @@ def normalize_frame(frame):
     return np.divide(np.asarray(frame, dtype='float'), np.amax(frame,axis=0))
 
 def stitchWells(wellDict, inputDir, outputDir):
+    tStart=time.time()
     for well in wellDict.keys():
         t0=time.time()
         print("Starting on wellID:", well)
@@ -53,24 +54,29 @@ def stitchWells(wellDict, inputDir, outputDir):
         xpix, ypix, pixel_resolution = wellDict[well]['xpix'], wellDict[well]['ypix'], wellDict[well]['pixel_resolution']
         outWidth = xpix*ncols
         outHeight = ypix*nrows
-        outArray = np.empty((nTimepoints, nChans, outHeight, outWidth), dtype=pixType)
+        outArray = np.empty((nTimepoints, nSlices, nChans, outHeight, outWidth, 1), dtype=pixType)
+        print(nTimepoints, nSlices, nChans, outHeight, outWidth, frame_interval, time_unit, pixType, xpix, ypix, pixel_resolution)
         print("well array shape:", outArray.shape)
+
         for r in range(nrows):
             for c in range(ncols):
                 startX = (ncols-c-1)*xpix
                 startY = r*ypix
                 loadme = os.path.join(inputDir, wellDict[well]['positions'][(r,c)][0])
                 print("Working on: ", str(loadme))
+
                 with tiffile.TiffFile(loadme) as tif:
                     inArray = tif.asarray()
-                try:
-                    outArray[:,:, startY:(startY+ypix), startX:(startX+xpix)] = inArray
-                except:
-                    inArray = np.reshape(inArray, (nTimepoints, nChans, xpix, ypix))
-                    outArray[:, :, startY:(startY + ypix), startX:(startX + xpix)] = inArray
+                    print("Array loaded, shape: ", inArray.shape, "Elapsed time: ", time.time() - t0)
+
+                inArray = np.reshape(inArray, (nTimepoints, nSlices, nChans, xpix, ypix, 1))
+                print("Array reshaped to: ", inArray.shape, "Elapsed time: ", time.time() - t0)
+                outArray[:,:,:, startY:(startY+ypix), startX:(startX+xpix),:] = inArray
+                print("Array appended to OutArray. Elapsed time: ", time.time() - t0)
         saveme=os.path.join(outputDir, str(well)+"_stitched.tif")
 
         bigTiffFlag = outArray.size * outArray.dtype.itemsize > 2000 * 2 ** 20
+        print("bigTillFlag set to:", bigTiffFlag)
 
         metadata = {"zStack" : bool(1-nSlices),
                     "unit":"cm",
@@ -85,6 +91,7 @@ def stitchWells(wellDict, inputDir, outputDir):
                     }
         tiffile.imsave(saveme, outArray, **save_data)
         print("Done with wellID: ", well, "in ", round(time.time()-t0,2), " s")
+    print("All done, it took: ", round(time.time() - tStart, 2), " s")
 
 def getFlatfieldWells(wellDict, inputDir, outputDir):
     for well in wellDict.keys():

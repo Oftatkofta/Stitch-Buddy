@@ -73,8 +73,9 @@ def filenamesToDict(indir, filenames, useBioformats=False):
 
     print(first_file.shape)
 
-    nTimepoints, nChannels, ypix, xpix = first_file.shape
-
+    nTimepoints,nChannels, ypix, xpix = first_file.shape
+    #nChannels = 1
+    #nTimepoints = nTimepoints/2
     pixelType = first_file.dtype
 
     for f in filenames:
