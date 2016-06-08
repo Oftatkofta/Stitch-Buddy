@@ -1,30 +1,28 @@
 from __future__ import print_function, division, absolute_import
 import re
 import os
-import Stitchit.Stitchit.tiffile_mod as tiffile
+import Stitchit.tiffile_mod as tiffile
 
-#with open("filenames.txt",'r') as f:
-#    filenames = f.read()
 
-#filenames = filenames.split("f1")
-
-indir=indir=r"O:\Anna L\160503_NB4_import_with_18mm_glass_2"
+#indir=indir=r"O:\Anna L\160503_NB4_import_with_18mm_glass_2"
 #indir=indir=r"O:\temp"
-outdir=r"O:\tempout"
+indir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/2Z_2C_2x2gridx2_2T_2"
+#outdir=r"O:\tempout"
 
 #Ingore non-.tif files in indir
 filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
 
 
-def filenamesToDict(indir, filenames):
+def filenamesToDict(indir, wellNameDict=None):
     """
-    Transforms a list of filenames into a dictionary.
+    Transforms the .tif-files in a directory into a dictionary.
 
     Filenames must conform to the following general pattern:
     ..._wellID-xxx_threeDigitRowNumber_threeDigitColNumber...
 
     :param
-    filenames: list of filenames from a multiwell mosaik experiment
+    indir: path to directory with files from a multiwell mosaic experiment
+    wellNameDict: Dictionary of names to give the wells from the wellID-number
 
     property_dict = 'nrows': (int) No. of rows in well
                     'ncols': (int) No. of columns in well
@@ -46,6 +44,8 @@ def filenamesToDict(indir, filenames):
 
     :return: Dictionary with wellID:property_dict
     """
+    # Ingore non-.tif files in indir
+    filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
 
     wellDict = {}
 
@@ -70,7 +70,7 @@ def filenamesToDict(indir, filenames):
     with tiffile.TiffFile(first_file) as tif:
         meta_data = tif.micromanager_metadata
         page=tif[0]
-        pixres=page.tags['x_resolution'].value
+        pixres=page.tags['x_resolution'].value #Assumes equal x/y resolution
         resoloution_unit = page.tags['resolution_unit'].value
         pixelType = page.dtype
 
@@ -83,12 +83,17 @@ def filenamesToDict(indir, filenames):
     nTimepoints = meta_data['summary']['Frames']
     nSlices =  meta_data['summary']['Slices']
     resoloution_unit =  {1: 'none', 2: 'inch', 3: 'centimeter'}[resoloution_unit]
+
     for f in filenames:
         #Extract positioning information from filename with regex
         wellID = int(well_regex.search(f).group())
+
+        if wellNameDict != None:
+            wellID = wellNameDict[wellID]
+
         rowNumber = int(row_regex.search(f).group())
         columnNumber = int(column_regex.search(f).group())
-        concat = int(column_regex.search(f).group())
+        concat = concat_regex.search(f)
         if concat != None:
             isConcat = True
 
@@ -103,7 +108,7 @@ def filenamesToDict(indir, filenames):
                                 'nTimepoints':int(nTimepoints),
                                 'frame_interval':frame_interval,
                                 'timeunit':'ms',
-                                'pixel_resolution':pixres[0]/float(pixres[1]), #resolution stored as rational in tif tag
+                                'pixel_resolution':pixres, #resolution stored as rational in tif tag
                                 'resoloution_unit': resoloution_unit,
                                 'pixelType':str(pixelType),
                                 'positions':{},
@@ -124,9 +129,5 @@ def filenamesToDict(indir, filenames):
         else:
             wellDict[wellID]['positions'][(rowNumber, columnNumber)].append(f)
             wellDict[wellID]['positions'][(rowNumber, columnNumber)].sort()
+            wellDict[wellID]['isConcat'] = isConcat
     return wellDict
-
-
-wellDict = filenamesToDict(indir, filenames)
-#for well in wellDict.keys():
-#    print(well, wellDict[well])

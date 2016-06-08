@@ -2,20 +2,19 @@ from __future__ import print_function, division, absolute_import
 from frankenScope_well_reshape import filenamesToDict
 import os
 import numpy as np
-import skimage.io
-import Stitchit.Stitchit.tiffile_mod as tiffile
+from skimage.transform import rescale, resize
+import Stitchit.tiffile_mod as tiffile
 import time
 from matplotlib import pyplot as plt
 
 #xpix, ypix, nTimepoints, pixType = 256, 256, 406, "uint8"
 #testdir = "/Volumes/HDD/Huygens_SYNC/_SYNC/CollectiveMigrationAnalysis/Examplemovies/160304_well13_128x128"
-indir=r"O:\Jens\160408_HaCaT-H2B_12well_Calcium_T0_1h_2"
-outdir=r"O:\temp"
-filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
+#indir=r"O:\Jens\160408_HaCaT-H2B_12well_Calcium_T0_1h_2"
+indir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/2C_2x2gridx2_2T_1"
+outdir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/"
+#outdir=r"O:\temp"
 
-
-
-wellDict = filenamesToDict(indir, filenames)
+wellDict = filenamesToDict(indir)
 wellDict1 = {wellDict.keys()[0]: wellDict[wellDict.keys()[0]]}
 
 #flatfield = skimage.io.imread(r"C:\Users\Franken_Scope\Desktop\160126 Flatfield correction\20X 0.5NA\MED_20x 0.5NA_DICII_4x4 bin.tif")
@@ -40,7 +39,45 @@ def flatfileld_correction(frame, flatfield_image):
 def normalize_frame(frame):
     return np.divide(np.asarray(frame, dtype='float'), np.amax(frame,axis=0))
 
-def stitchWells(wellDict, inputDir, outputDir):
+
+def bin_ndarray(ndarray, new_shape, operation='mean'):
+    """
+    Bins an ndarray in all axes based on the target shape, by summing or
+        averaging.
+
+    Number of output dimensions must match number of input dimensions and
+        new axes must divide old ones.
+
+    Example
+    -------
+    >>> m = np.arange(0,100,1).reshape((10,10))
+    >>> n = bin_ndarray(m, new_shape=(5,5), operation='sum')
+    >>> print(n)
+
+    [[ 22  30  38  46  54]
+     [102 110 118 126 134]
+     [182 190 198 206 214]
+     [262 270 278 286 294]
+     [342 350 358 366 374]]
+
+    """
+    operation = operation.lower()
+    if not operation in ['sum', 'mean', 'max', 'min']:
+        raise ValueError("Operation not supported.")
+    if ndarray.ndim != len(new_shape):
+        raise ValueError("Shape mismatch: {} -> {}".format(ndarray.shape,
+                                                           new_shape))
+    compression_pairs = [(d, c//d) for d,c in zip(new_shape,
+                                                  ndarray.shape)]
+    flattened = [int(l) for p in compression_pairs for l in p]
+    print(flattened)
+    ndarray = ndarray.reshape(flattened)
+    for i in range(len(new_shape)):
+        op = getattr(ndarray, operation)
+        ndarray = op(-1*(i+1))
+    return ndarray
+
+def stitchWells(wellDict, inputDir, outputDir, resizeTo=None):
     for well in wellDict.keys():
         t0=time.time()
         print("Starting on wellID:", well)
@@ -53,7 +90,7 @@ def stitchWells(wellDict, inputDir, outputDir):
         xpix, ypix, pixel_resolution = wellDict[well]['xpix'], wellDict[well]['ypix'], wellDict[well]['pixel_resolution']
         outWidth = xpix*ncols
         outHeight = ypix*nrows
-        outArray = np.empty((nTimepoints, nChans, outHeight, outWidth), dtype=pixType)
+        outArray = np.empty((nTimepoints, nSlices, nChans, outHeight, outWidth), dtype="uint16")
         print("well array shape:", outArray.shape)
         for r in range(nrows):
             for c in range(ncols):
@@ -63,19 +100,26 @@ def stitchWells(wellDict, inputDir, outputDir):
                 print("Working on: ", str(loadme))
                 with tiffile.TiffFile(loadme) as tif:
                     inArray = tif.asarray()
+
                 try:
-                    outArray[:,:, startY:(startY+ypix), startX:(startX+xpix)] = inArray
+                    outArray[:,:,:, startY:(startY+ypix), startX:(startX+xpix)] = inArray
                 except:
-                    inArray = np.reshape(inArray, (nTimepoints, nChans, xpix, ypix))
-                    outArray[:, :, startY:(startY + ypix), startX:(startX + xpix)] = inArray
+                    inArray = np.reshape(inArray, (nTimepoints, nSlices, nChans, xpix, ypix))
+                    outArray[:,:,:, startY:(startY + ypix), startX:(startX + xpix)] = inArray
+
         saveme=os.path.join(outputDir, str(well)+"_stitched.tif")
+
+        if resizeTo != None:
+            outArray = bin_ndarray(outArray, ((nTimepoints, nSlices, nChans,
+                                               outHeight*resizeTo,
+                                               outWidth*resizeTo))).astype("uint16")
 
         bigTiffFlag = outArray.size * outArray.dtype.itemsize > 2000 * 2 ** 20
 
         metadata = {"zStack" : bool(1-nSlices),
-                    "unit":"cm",
-                    "finterval" : frame_interval,
-                    "tunit" : time_unit
+                    "unit":"um",
+                    "tunit": time_unit,
+                    "finterval" : frame_interval
                     }
 
         save_data = {"bigtiff" : bigTiffFlag,
@@ -107,4 +151,4 @@ def getFlatfieldWells(wellDict, inputDir, outputDir):
         print("Done with wellID: ", well, "in ", round(time.time()-t0,2), " s")
 
 
-stitchWells(wellDict, indir, outdir)
+stitchWells(wellDict, indir, outdir, 0.5)
