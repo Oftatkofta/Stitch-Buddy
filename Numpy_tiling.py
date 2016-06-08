@@ -3,24 +3,37 @@ from frankenScope_well_reshape import filenamesToDict
 import os
 import numpy as np
 from skimage.transform import rescale, resize
-import Stitchit.tiffile_mod as tiffile
+import Stitchit.Stitchit.tiffile_mod as tiffile
 import time
 from matplotlib import pyplot as plt
 
-#xpix, ypix, nTimepoints, pixType = 256, 256, 406, "uint8"
-#testdir = "/Volumes/HDD/Huygens_SYNC/_SYNC/CollectiveMigrationAnalysis/Examplemovies/160304_well13_128x128"
-<<<<<<< HEAD
+
 #indir=r"O:\Jens\160408_HaCaT-H2B_12well_Calcium_T0_1h_2"
-indir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/2C_2x2gridx2_2T_1"
-outdir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/"
+#indir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/2C_2x2gridx2_2T_1"
+#outdir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/"
 #outdir=r"O:\temp"
-=======
-indir=r"O:\temp"
+
+indir=r"O:\Stig Ove\160607 Pernille CBD EGTA Epilife EGF_2"
 outdir=r"O:\tempout"
 filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
->>>>>>> origin/master
 
-wellDict = filenamesToDict(indir)
+
+wellNames = {1:"20_uM_CBD",
+             2:"50_uM_CBD",
+             3:"100_uM_CBD",
+             4:"150_uM_CBD",
+             5:"4_mM_EGTA",
+             6:"2_mM_EGTA",
+             7:"1_mM_EGTA",
+             8:"0.5_mM_EGTA",
+             9:"serum",
+             10:"no_serum",
+             11:"20ug_EGF_EpiLife",
+             12:"No_treatment"}
+
+
+
+wellDict = filenamesToDict(indir, wellNames)
 wellDict1 = {wellDict.keys()[0]: wellDict[wellDict.keys()[0]]}
 
 #flatfield = skimage.io.imread(r"C:\Users\Franken_Scope\Desktop\160126 Flatfield correction\20X 0.5NA\MED_20x 0.5NA_DICII_4x4 bin.tif")
@@ -44,8 +57,6 @@ def flatfileld_correction(frame, flatfield_image):
 
 def normalize_frame(frame):
     return np.divide(np.asarray(frame, dtype='float'), np.amax(frame,axis=0))
-
-<<<<<<< HEAD
 
 def bin_ndarray(ndarray, new_shape, operation='mean'):
     """
@@ -77,7 +88,6 @@ def bin_ndarray(ndarray, new_shape, operation='mean'):
     compression_pairs = [(d, c//d) for d,c in zip(new_shape,
                                                   ndarray.shape)]
     flattened = [int(l) for p in compression_pairs for l in p]
-    print(flattened)
     ndarray = ndarray.reshape(flattened)
     for i in range(len(new_shape)):
         op = getattr(ndarray, operation)
@@ -85,10 +95,9 @@ def bin_ndarray(ndarray, new_shape, operation='mean'):
     return ndarray
 
 def stitchWells(wellDict, inputDir, outputDir, resizeTo=None):
-=======
-def stitchWells(wellDict, inputDir, outputDir):
+
     tStart=time.time()
->>>>>>> origin/master
+
     for well in wellDict.keys():
         t0=time.time()
         print("Starting on wellID:", well)
@@ -101,12 +110,9 @@ def stitchWells(wellDict, inputDir, outputDir):
         xpix, ypix, pixel_resolution = wellDict[well]['xpix'], wellDict[well]['ypix'], wellDict[well]['pixel_resolution']
         outWidth = xpix*ncols
         outHeight = ypix*nrows
-<<<<<<< HEAD
+
         outArray = np.empty((nTimepoints, nSlices, nChans, outHeight, outWidth), dtype="uint16")
-=======
-        outArray = np.empty((nTimepoints, nSlices, nChans, outHeight, outWidth, 1), dtype=pixType)
-        print(nTimepoints, nSlices, nChans, outHeight, outWidth, frame_interval, time_unit, pixType, xpix, ypix, pixel_resolution)
->>>>>>> origin/master
+
         print("well array shape:", outArray.shape)
 
         for r in range(nrows):
@@ -118,29 +124,26 @@ def stitchWells(wellDict, inputDir, outputDir):
 
                 with tiffile.TiffFile(loadme) as tif:
                     inArray = tif.asarray()
-<<<<<<< HEAD
+                    print("Array loaded, shape: ", inArray.shape, "Elapsed time: ", time.time() - t0)
 
                 try:
                     outArray[:,:,:, startY:(startY+ypix), startX:(startX+xpix)] = inArray
                 except:
                     inArray = np.reshape(inArray, (nTimepoints, nSlices, nChans, xpix, ypix))
+                    print("Array reshaped to: ", inArray.shape, "Elapsed time: ", time.time() - t0)
                     outArray[:,:,:, startY:(startY + ypix), startX:(startX + xpix)] = inArray
 
-=======
-                    print("Array loaded, shape: ", inArray.shape, "Elapsed time: ", time.time() - t0)
-
-                inArray = np.reshape(inArray, (nTimepoints, nSlices, nChans, xpix, ypix, 1))
-                print("Array reshaped to: ", inArray.shape, "Elapsed time: ", time.time() - t0)
-                outArray[:,:,:, startY:(startY+ypix), startX:(startX+xpix),:] = inArray
                 print("Array appended to OutArray. Elapsed time: ", time.time() - t0)
->>>>>>> origin/master
+
         saveme=os.path.join(outputDir, str(well)+"_stitched.tif")
 
         if resizeTo != None:
+            print("Resizing outArray...")
+            t=time.time()
             outArray = bin_ndarray(outArray, ((nTimepoints, nSlices, nChans,
                                                outHeight*resizeTo,
                                                outWidth*resizeTo))).astype("uint16")
-
+            print("Done!", time.time()-t, "s")
         bigTiffFlag = outArray.size * outArray.dtype.itemsize > 2000 * 2 ** 20
         print("bigTillFlag set to:", bigTiffFlag)
 
