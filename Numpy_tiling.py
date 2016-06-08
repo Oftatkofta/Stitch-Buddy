@@ -9,10 +9,16 @@ from matplotlib import pyplot as plt
 
 #xpix, ypix, nTimepoints, pixType = 256, 256, 406, "uint8"
 #testdir = "/Volumes/HDD/Huygens_SYNC/_SYNC/CollectiveMigrationAnalysis/Examplemovies/160304_well13_128x128"
+<<<<<<< HEAD
 #indir=r"O:\Jens\160408_HaCaT-H2B_12well_Calcium_T0_1h_2"
 indir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/2C_2x2gridx2_2T_1"
 outdir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/"
 #outdir=r"O:\temp"
+=======
+indir=r"O:\temp"
+outdir=r"O:\tempout"
+filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
+>>>>>>> origin/master
 
 wellDict = filenamesToDict(indir)
 wellDict1 = {wellDict.keys()[0]: wellDict[wellDict.keys()[0]]}
@@ -39,6 +45,7 @@ def flatfileld_correction(frame, flatfield_image):
 def normalize_frame(frame):
     return np.divide(np.asarray(frame, dtype='float'), np.amax(frame,axis=0))
 
+<<<<<<< HEAD
 
 def bin_ndarray(ndarray, new_shape, operation='mean'):
     """
@@ -78,6 +85,10 @@ def bin_ndarray(ndarray, new_shape, operation='mean'):
     return ndarray
 
 def stitchWells(wellDict, inputDir, outputDir, resizeTo=None):
+=======
+def stitchWells(wellDict, inputDir, outputDir):
+    tStart=time.time()
+>>>>>>> origin/master
     for well in wellDict.keys():
         t0=time.time()
         print("Starting on wellID:", well)
@@ -90,16 +101,24 @@ def stitchWells(wellDict, inputDir, outputDir, resizeTo=None):
         xpix, ypix, pixel_resolution = wellDict[well]['xpix'], wellDict[well]['ypix'], wellDict[well]['pixel_resolution']
         outWidth = xpix*ncols
         outHeight = ypix*nrows
+<<<<<<< HEAD
         outArray = np.empty((nTimepoints, nSlices, nChans, outHeight, outWidth), dtype="uint16")
+=======
+        outArray = np.empty((nTimepoints, nSlices, nChans, outHeight, outWidth, 1), dtype=pixType)
+        print(nTimepoints, nSlices, nChans, outHeight, outWidth, frame_interval, time_unit, pixType, xpix, ypix, pixel_resolution)
+>>>>>>> origin/master
         print("well array shape:", outArray.shape)
+
         for r in range(nrows):
             for c in range(ncols):
                 startX = (ncols-c-1)*xpix
                 startY = r*ypix
                 loadme = os.path.join(inputDir, wellDict[well]['positions'][(r,c)][0])
                 print("Working on: ", str(loadme))
+
                 with tiffile.TiffFile(loadme) as tif:
                     inArray = tif.asarray()
+<<<<<<< HEAD
 
                 try:
                     outArray[:,:,:, startY:(startY+ypix), startX:(startX+xpix)] = inArray
@@ -107,6 +126,14 @@ def stitchWells(wellDict, inputDir, outputDir, resizeTo=None):
                     inArray = np.reshape(inArray, (nTimepoints, nSlices, nChans, xpix, ypix))
                     outArray[:,:,:, startY:(startY + ypix), startX:(startX + xpix)] = inArray
 
+=======
+                    print("Array loaded, shape: ", inArray.shape, "Elapsed time: ", time.time() - t0)
+
+                inArray = np.reshape(inArray, (nTimepoints, nSlices, nChans, xpix, ypix, 1))
+                print("Array reshaped to: ", inArray.shape, "Elapsed time: ", time.time() - t0)
+                outArray[:,:,:, startY:(startY+ypix), startX:(startX+xpix),:] = inArray
+                print("Array appended to OutArray. Elapsed time: ", time.time() - t0)
+>>>>>>> origin/master
         saveme=os.path.join(outputDir, str(well)+"_stitched.tif")
 
         if resizeTo != None:
@@ -115,6 +142,7 @@ def stitchWells(wellDict, inputDir, outputDir, resizeTo=None):
                                                outWidth*resizeTo))).astype("uint16")
 
         bigTiffFlag = outArray.size * outArray.dtype.itemsize > 2000 * 2 ** 20
+        print("bigTillFlag set to:", bigTiffFlag)
 
         metadata = {"zStack" : bool(1-nSlices),
                     "unit":"um",
@@ -129,6 +157,7 @@ def stitchWells(wellDict, inputDir, outputDir, resizeTo=None):
                     }
         tiffile.imsave(saveme, outArray, **save_data)
         print("Done with wellID: ", well, "in ", round(time.time()-t0,2), " s")
+    print("All done, it took: ", round(time.time() - tStart, 2), " s")
 
 def getFlatfieldWells(wellDict, inputDir, outputDir):
     for well in wellDict.keys():
