@@ -56,8 +56,17 @@ class Window(QtGui.QMainWindow):
         self.progress_btn.move(0,135)
         self.progress_btn.clicked.connect(self.increase_progress)
 
+        indir_btn = QtGui.QPushButton("Set inDir", self)
+        indir_btn.clicked.connect(self.select_indir)
+        indir_btn.resize(indir_btn.sizeHint())
+        indir_btn.move(100,136)
 
         self.show()
+
+    def select_indir(self):
+        indir = QtGui.QFileDialog.getExistingDirectory(None, 'Select a folder:','',
+                                                      QtGui.QFileDialog.ShowDirsOnly)
+        print(indir)
 
     def increase_progress(self):
         self.completed += 1

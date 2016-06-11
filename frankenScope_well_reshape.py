@@ -1,8 +1,11 @@
 from __future__ import print_function, division, absolute_import
 import re
 import os
-import Stitchit.Stitchit.tiffile_mod as tiffile
+try :
+    import Stitchit.Stitchit.tiffile_mod as tiffile
 
+except ImportError:
+    import Stitchit.tiffile_mod as tiffile
 
 def filenamesToDict(indir, wellNameDict=None):
     """

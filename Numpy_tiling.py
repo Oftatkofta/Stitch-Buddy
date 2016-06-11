@@ -3,7 +3,12 @@ from frankenScope_well_reshape import filenamesToDict
 import os
 import numpy as np
 from skimage.transform import rescale, resize
-import Stitchit.Stitchit.tiffile_mod as tiffile
+try :
+    import Stitchit.Stitchit.tiffile_mod as tiffile
+
+except ImportError:
+    import Stitchit.tiffile_mod as tiffile
+
 import time
 from matplotlib import pyplot as plt
 
