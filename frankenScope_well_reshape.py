@@ -8,6 +8,7 @@ except ImportError:
     import Stitchit.tiffile_mod as tiffile
 
 def filenamesToDict(indir, wellNameDict=None):
+
     """
     Transforms the .tif-files in a directory into a dictionary.
 
@@ -81,8 +82,11 @@ def filenamesToDict(indir, wellNameDict=None):
         #Extract positioning information from filename with regex
         wellID = int(well_regex.search(f).group())
 
+
         if wellNameDict != None:
             wellID = wellNameDict[wellID]
+
+        print(wellID)
 
         rowNumber = int(row_regex.search(f).group())
         columnNumber = int(column_regex.search(f).group())
@@ -123,5 +127,6 @@ def filenamesToDict(indir, wellNameDict=None):
             wellDict[wellID]['positions'][(rowNumber, columnNumber)].append(f)
             wellDict[wellID]['positions'][(rowNumber, columnNumber)].sort()
             wellDict[wellID]['isConcat'] = isConcat
+
     return wellDict
 

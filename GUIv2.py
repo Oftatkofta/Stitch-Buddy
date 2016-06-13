@@ -2,17 +2,47 @@ from __future__ import print_function, division, absolute_import
 from frankenScope_well_reshape import filenamesToDict
 import sys
 from PyQt4 import QtGui, QtCore
+import re
+
+class EmittingStream(QtCore.QObject):
+
+    textWritten = QtCore.pyqtSignal(str)
+
+    def write(self, text):
+        self.textWritten.emit(str(text))
+
+class ErrorEmittingStream(QtCore.QObject):
+
+    textWritten = QtCore.pyqtSignal(str)
+
+    def write(self, errortext):
+        self.textWritten.emit(str(errortext))
+
 
 
 class AppWindow(QtGui.QWidget):
 
     def __init__(self):
         super(AppWindow, self).__init__()
+
         self.indir = None
         self.outdir = None
+        self.wellDict = None
+
+        # Installs custom output streams
+        sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
+        sys.stderr = ErrorEmittingStream(textWritten=self.errorOutputWritten)
+
         self.initUI()
 
+    def __del__(self):
+        # Restore sys.stdout and sys.stderr
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
+
+
     def initUI(self):
+
         #All visible lables in order top->bottom
         lbl1 = QtGui.QLabel("Load files from this directory:", self)
         btn1_label = "Select input directory"
@@ -22,11 +52,15 @@ class AppWindow(QtGui.QWidget):
         btn2_label = "Select output directory"
         self.outdir_lbl = QtGui.QLabel(str(self.outdir), self)
 
+        btn3_label = "Rename wells (optional)"
+
         #Tooltips for the buttons
         btn1_tooltip = "Select the directory where yor OME-TIFF files are " \
                        "stored"
         btn2_tooltip = "Select the directory where your stitched files will " \
                        "be stored"
+        btn3_tooltip = "Opens an editor where you can write the names of the" \
+                       " stitched wells"
 
         #Make buttons work
         btn1 = QtGui.QPushButton(btn1_label, self)
@@ -34,68 +68,50 @@ class AppWindow(QtGui.QWidget):
         btn1.setToolTip(btn1_tooltip)
         btn1.resize(btn1.sizeHint())
 
-
         btn2 = QtGui.QPushButton(btn2_label, self)
         btn2.clicked.connect(self.select_outdir)
         btn2.setToolTip(btn1_tooltip)
         btn2.resize(btn2.sizeHint())
 
+        btn3 = QtGui.QPushButton(btn3_label, self)
+        btn3.clicked.connect(self.rename_wells)
+        btn3.setToolTip(btn3_tooltip)
+        btn3.resize(btn3.sizeHint())
 
-        #QtGui.QToolTip.setFont(QtGui.QFont("SansSerif", 12))
-        #self.setToolTip("This is a work in <i>progress</i>...")
-
-        #exitAction = QtGui.QAction(QtGui.QIcon("logo.png"), "&Stop", self)
-        #exitAction.setShortcut("Ctrl+Q")
-        #exitAction.setStatusTip("Exit application")
-        #exitAction.triggered.connect(QtGui.qApp.quit)
-
-        #self.statusBar().showMessage("Ready")
-
-        #menubar = self.menuBar()
-        #fileMenu = menubar.addMenu("&File")
-        #fileMenu.addAction(exitAction)
-
+        #textbox to log output and errors from component functions
+        self.logOutput = QtGui.QTextEdit()
+        self.logOutput.setReadOnly(True)
 
 
         qbtn = QtGui.QPushButton("Quit", self)
         qbtn.clicked.connect(QtCore.QCoreApplication.instance().quit)
         qbtn.resize(qbtn.sizeHint())
-        #qbtn.move(100, 50)
 
         runButton = QtGui.QPushButton("Run...", self)
         runButton.clicked.connect(self.center)
         qbtn.resize(qbtn.sizeHint())
 
-        #self.dialogbtn = QtGui.QPushButton("Dialog", self)
-        #self.dialogbtn.clicked.connect(self.showDialog)
-        #self.le = QtGui.QLineEdit(self)
-
-        #grid = QtGui.QGridLayout()
-        #self.setLayout(grid)
-        #names =["Ass", "Hat", '3', '4', '',
-        #        "Kikkeli", "bajs", "snopp", "666", "667"]
-
-        #positions = [(i, j) for i in range(2) for j in range(5)]
-
-        #for position, name in zip(positions, names):
-         #   if name == '':
-          #      continue
-           # button = QtGui.QPushButton(name)
-            #grid.addWidget(button, *position)
+        #Group run and quit buttons into one row
         runQuitBox = QtGui.QHBoxLayout()
         runQuitBox.addWidget(runButton)
         runQuitBox.addWidget(qbtn)
 
+        #Separator line
+        line1 = QtGui.QFrame()
+        line1.setFrameShape(QtGui.QFrame.HLine)
+        line1.setFrameShadow(QtGui.QFrame.Sunken)
+
+
         verticalWidgets = [lbl1, self.indir_lbl, btn1, lbl2, self.outdir_lbl,
-                           btn2]
+                           btn2, line1, btn3]
+
         vbox = QtGui.QVBoxLayout()
         for widget in verticalWidgets:
             vbox.addWidget(widget)
 
+        vbox.addWidget(self.logOutput)
         vbox.addStretch(1)
         vbox.addLayout(runQuitBox)
-        #vbox = QtGui.QVBoxLayout()
-        #vbox.addStretch(1)
 
 
         self.setLayout(vbox)
@@ -105,10 +121,33 @@ class AppWindow(QtGui.QWidget):
         #self.center()
         self.show()
 
+    def normalOutputWritten(self, text):
+        """Append text to the QTextEdit."""
 
+        self.logOutput.insertPlainText(text)
+        sb= self.logOutput.verticalScrollBar()
+        sb.setValue(sb.maximum())
+        #self.logOutput.setTextCursor(cursor)
+        #self.logOutput.ensureCursorVisible()
 
+    def errorOutputWritten(self, errortext):
+        """Append red error text to the QTextEdit."""
 
-        self.show()
+        #sets fontcolor to red for warnings
+        color = QtGui.QColor(255, 0, 0)
+        self.logOutput.setTextColor(color)
+
+        #Write ouput to log
+        self.logOutput.insertPlainText(errortext)
+
+        #Set fontcolor back to black
+        color = QtGui.QColor(0, 0, 0)
+        self.logOutput.setTextColor(color)
+
+        #Autoscroll the text
+        sb= self.logOutput.verticalScrollBar()
+        sb.setValue(sb.maximum())
+
 
     def showDialog(self):
 
@@ -120,13 +159,18 @@ class AppWindow(QtGui.QWidget):
             self.le.setText(str(text))
 
 
+
     def select_indir(self):
         self.indir = QtGui.QFileDialog.getExistingDirectory(None,
-                                                            'Select input folder...','',
+                                                            'Select input folder...',
+                                                            '/Volumes/HDD/Huygens_SYNC/Raw OME files for test/2Z_2C_2x2gridx2_2T_2',
                                                             QtGui.QFileDialog.ShowDirsOnly)
 
-        print(self.indir)
+        self.wellDict = filenamesToDict(str(self.indir))
         self.indir_lbl.setText(str(self.indir))
+        boldFont = QtGui.QFont()
+        boldFont.setBold(True)
+        self.indir_lbl.setFont(boldFont)
 
     def select_outdir(self):
         self.outdir = QtGui.QFileDialog.getExistingDirectory(None,
@@ -135,10 +179,20 @@ class AppWindow(QtGui.QWidget):
                                                             QtGui.QFileDialog.ShowDirsOnly)
 
         self.outdir_lbl.setText(str(self.outdir))
+        boldFont = QtGui.QFont()
+        boldFont.setBold(True)
+        self.outdir_lbl.setFont(boldFont)
 
-    def getWelldict(self):
 
-        self.wellDict = filenamesToDict(self.indir)
+    def rename_wells(self):
+
+        if self.wellDict == None:
+            print("No indir selected!")
+
+        else:
+            for key in self.wellDict:
+                print(self.wellDict[key])
+
 
     def center(self):
 
