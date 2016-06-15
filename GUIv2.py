@@ -3,7 +3,6 @@ from frankenScope_well_reshape import filenamesToDict
 from Numpy_tiling import stitchWells
 import sys
 from PyQt4 import QtGui, QtCore
-import re
 
 class EmittingStream(QtCore.QObject):
 
@@ -20,6 +19,20 @@ class ErrorEmittingStream(QtCore.QObject):
         self.textWritten.emit(str(errortext))
 
 
+class StitchThread(QtCore.QThread):
+
+    def __init__(self, wellDict, indir, outdir, rescale):
+        QtCore.QThread.__init__(self)
+        self.wellDict = wellDict
+        self.indir = indir
+        self.outdir = outdir
+        self.rescale = rescale
+
+    def __del__(self):
+        self.quit()
+
+    def run(self):
+        stitchWells(self.wellDict, self.indir, self.outdir, self.rescale)
 
 class AppWindow(QtGui.QWidget):
 
@@ -137,7 +150,8 @@ class AppWindow(QtGui.QWidget):
 
     def run_stitching(self):
         print("starting")
-        stitchWells(self.wellDict, str(self.indir), str(self.outdir), self.rescale)
+        separateThread = StitchThread(self.wellDict, str(self.indir), str(self.outdir), self.rescale)
+        separateThread.start()
         print("done!")
 
 
