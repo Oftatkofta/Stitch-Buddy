@@ -18,28 +18,28 @@ from matplotlib import pyplot as plt
 #outdir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/"
 #outdir=r"O:\temp"
 
-indir=r"O:\Stig Ove\160607 Pernille CBD EGTA Epilife EGF_2"
-outdir=r"O:\tempout"
-filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
-
-
-wellNames = {1:"20_uM_CBD",
-             2:"50_uM_CBD",
-             3:"100_uM_CBD",
-             4:"150_uM_CBD",
-             5:"4_mM_EGTA",
-             6:"2_mM_EGTA",
-             7:"1_mM_EGTA",
-             8:"0.5_mM_EGTA",
-             9:"serum",
-             10:"no_serum",
-             11:"20ug_EGF_EpiLife",
-             12:"No_treatment"}
+#indir=r"O:\Jens\160610_HaCaT-H2B_Insert_serum_EGF_4"
+#outdir=r"O:\tempout"
 
 
 
-wellDict = filenamesToDict(indir, wellNames)
-wellDict1 = {wellDict.keys()[0]: wellDict[wellDict.keys()[0]]}
+wellNames = {2:"20_uM_CBD",
+             4:"50_uM_CBD",
+             5:"100_uM_CBD",
+             6:"150_uM_CBD",
+             7:"4_mM_EGTA",
+             8:"2_mM_EGTA",
+             10:"1_mM_EGTA",
+             11:"0.5_mM_EGTA",
+             12:"serum",
+             14:"no_serum",
+             15:"20ug_EGF_EpiLife",
+             }
+
+
+
+#wellDict = filenamesToDict(indir, wellNames)
+#wellDict1 = {wellDict.keys()[0]: wellDict[wellDict.keys()[0]]}
 
 #flatfield = skimage.io.imread(r"C:\Users\Franken_Scope\Desktop\160126 Flatfield correction\20X 0.5NA\MED_20x 0.5NA_DICII_4x4 bin.tif")
 #background = skimage.io.imread(r"C:\Users\Franken_Scope\Desktop\160126 Flatfield correction\Dark references\160205_dark_frame_4x4_bin.tif")
@@ -187,5 +187,4 @@ def getFlatfieldWells(wellDict, inputDir, outputDir):
         skimage.io.imsave(saveme, outArray, )
         print("Done with wellID: ", well, "in ", round(time.time()-t0,2), " s")
 
-
-stitchWells(wellDict, indir, outdir, 0.5)
+#stitchWells(wellDict, indir, outdir, 0.25)

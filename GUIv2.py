@@ -1,5 +1,6 @@
 from __future__ import print_function, division, absolute_import
 from frankenScope_well_reshape import filenamesToDict
+from Numpy_tiling import stitchWells
 import sys
 from PyQt4 import QtGui, QtCore
 import re
@@ -28,7 +29,7 @@ class AppWindow(QtGui.QWidget):
         self.indir = None
         self.outdir = None
         self.wellDict = None
-
+        self.rescale = 0.5
         # Installs custom output streams
         sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
         sys.stderr = ErrorEmittingStream(textWritten=self.errorOutputWritten)
@@ -78,6 +79,14 @@ class AppWindow(QtGui.QWidget):
         btn3.setToolTip(btn3_tooltip)
         btn3.resize(btn3.sizeHint())
 
+        self.rescale_lbl = QtGui.QLabel("Output will be rescaled with a factor of: "+str(self.rescale))
+
+        rescale_btn = QtGui.QComboBox(self)
+        rescale_btn.addItem("Rescale by 1/2 (default)")
+        rescale_btn.addItem("Rescale by 1 (no rescaling)")
+        rescale_btn.addItem("Rescale by 1/4")
+        rescale_btn.activated[str].connect(self.set_rescale)
+
         #textbox to log output and errors from component functions
         self.logOutput = QtGui.QTextEdit()
         self.logOutput.setReadOnly(True)
@@ -88,7 +97,7 @@ class AppWindow(QtGui.QWidget):
         qbtn.resize(qbtn.sizeHint())
 
         runButton = QtGui.QPushButton("Run...", self)
-        runButton.clicked.connect(self.center)
+        runButton.clicked.connect(self.run_stitching)
         qbtn.resize(qbtn.sizeHint())
 
         #Group run and quit buttons into one row
@@ -103,7 +112,7 @@ class AppWindow(QtGui.QWidget):
 
 
         verticalWidgets = [lbl1, self.indir_lbl, btn1, lbl2, self.outdir_lbl,
-                           btn2, line1, btn3]
+                           btn2, line1, btn3, self.rescale_lbl, rescale_btn]
 
         vbox = QtGui.QVBoxLayout()
         for widget in verticalWidgets:
@@ -120,6 +129,19 @@ class AppWindow(QtGui.QWidget):
         self.setWindowIcon(QtGui.QIcon("logo.png"))
         #self.center()
         self.show()
+
+    def set_rescale(self, text):
+        valDict = {"Rescale by 1/2 (default)":0.5, "Rescale by 1 (no rescaling)":None, "Rescale by 1/4":0.25}
+        self.rescale = valDict[str(text)]
+        self.rescale_lbl.setText("Output will be rescaled with a factor of: "+str(self.rescale))
+
+    def run_stitching(self):
+        print("starting")
+        stitchWells(self.wellDict, str(self.indir), str(self.outdir), self.rescale)
+        print("done!")
+
+
+
 
     def normalOutputWritten(self, text):
         """Append text to the QTextEdit."""
@@ -194,12 +216,6 @@ class AppWindow(QtGui.QWidget):
                 print(self.wellDict[key])
 
 
-    def center(self):
-
-        qr = self.frameGeometry()
-        cp = QtGui.QDesktopWidget().availableGeometry().center()
-        qr.moveCenter(cp)
-        self.move(qr.topLeft())
 
     def closeEvent(self, event):
 

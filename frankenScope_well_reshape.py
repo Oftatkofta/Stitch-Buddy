@@ -86,7 +86,6 @@ def filenamesToDict(indir, wellNameDict=None):
         if wellNameDict != None:
             wellID = wellNameDict[wellID]
 
-        print(wellID)
 
         rowNumber = int(row_regex.search(f).group())
         columnNumber = int(column_regex.search(f).group())
@@ -129,6 +128,3 @@ def filenamesToDict(indir, wellNameDict=None):
             wellDict[wellID]['isConcat'] = isConcat
 
     return wellDict
-
-tst = filenamesToDict(r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/")
-print(tst)
