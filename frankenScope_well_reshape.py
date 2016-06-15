@@ -130,3 +130,5 @@ def filenamesToDict(indir, wellNameDict=None):
 
     return wellDict
 
+tst = filenamesToDict(r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/")
+print(tst)
