@@ -10,6 +10,7 @@ except ImportError:
     import Stitchit.tiffile_mod as tiffile
 
 import time
+from fractions import Fraction
 from matplotlib import pyplot as plt
 
 
@@ -45,23 +46,6 @@ wellNames = {2:"20_uM_CBD",
 #background = skimage.io.imread(r"C:\Users\Franken_Scope\Desktop\160126 Flatfield correction\Dark references\160205_dark_frame_4x4_bin.tif")
 #flatfield = skimage.io.imread(r"O:\Jens\160304_processed_ffcorr\MED_20x 0.5NA_DICII_4x4 bin.tif")
 #flatfield_image = np.divide(np.asarray(flatfield, dtype='float'), np.amax(flatfield))
-
-def flatfileld_correction(frame, flatfield_image):
-    """
-
-    Args:
-        frame:
-        backgroun:
-        flatfield_image: background subtracted already
-
-    Returns:
-
-    """
-
-    return np.asarray(np.multiply(frame, flatfield_image), dtype='uint16')
-
-def normalize_frame(frame):
-    return np.divide(np.asarray(frame, dtype='float'), np.amax(frame,axis=0))
 
 def bin_ndarray(ndarray, new_shape, operation='mean'):
     """
@@ -122,35 +106,43 @@ def stitchWells(wellDict, inputDir, outputDir, resizeTo=None):
 
         for r in range(nrows):
             for c in range(ncols):
+                t1 = time.time()
                 startX = (ncols-c-1)*xpix
                 startY = r*ypix
                 loadme = os.path.join(inputDir, wellDict[well]['positions'][(r,c)][0])
-                print("Working on: ", str(loadme))
+                print("Working on file: ", str(loadme))
 
                 with tiffile.TiffFile(loadme) as tif:
                     inArray = tif.asarray()
-                    print("Array loaded, shape: ", inArray.shape, "Elapsed time: ", time.time() - t0)
+                    print("File loaded as array, shape: ", inArray.shape, "loadtime: ", round(time.time() - t1), " s")
 
                 try:
                     outArray[:,:,:, startY:(startY+ypix), startX:(startX+xpix)] = inArray
                 except:
                     inArray = np.reshape(inArray, (nTimepoints, nSlices, nChans, xpix, ypix))
-                    print("Array reshaped to: ", inArray.shape, "Elapsed time: ", time.time() - t0)
+                    print("Input array reshaped to: ", inArray.shape)
                     outArray[:,:,:, startY:(startY + ypix), startX:(startX + xpix)] = inArray
 
-                print("Array appended to OutArray. Elapsed time: ", time.time() - t0)
+                print("Input array appended to OutArray. Elapsed time for well: ", round(time.time() - t0))
 
         saveme=os.path.join(outputDir, str(well)+"_stitched.tif")
 
         if resizeTo != None:
+            old_resolution = pixel_resolution[1]/float(pixel_resolution[0])
+            new_resolution = old_resolution*resizeTo
+            rational_new_resolution = Fraction(new_resolution).limit_denominator()
+            print(pixel_resolution)
+            pixel_resolution = (rational_new_resolution.denominator,
+                                rational_new_resolution.numerator)
+            print(pixel_resolution)
             print("Resizing outArray...")
             t=time.time()
             outArray = bin_ndarray(outArray, ((nTimepoints, nSlices, nChans,
                                                outHeight*resizeTo,
                                                outWidth*resizeTo))).astype("uint16")
-            print("Done!", time.time()-t, "s")
+            print("Done!", round(time.time()-t), " s")
         bigTiffFlag = outArray.size * outArray.dtype.itemsize > 2000 * 2 ** 20
-        print("bigTillFlag set to:", bigTiffFlag)
+        print("bigTillFlag set to:", bigTiffFlag, "Saving output...(may take a while)")
 
         metadata = {"zStack" : bool(1-nSlices),
                     "unit":"um",
@@ -165,26 +157,8 @@ def stitchWells(wellDict, inputDir, outputDir, resizeTo=None):
                     }
         tiffile.imsave(saveme, outArray, **save_data)
         print("Done with wellID: ", well, "in ", round(time.time()-t0,2), " s")
-    print("All done, it took: ", round(time.time() - tStart, 2), " s")
-
-def getFlatfieldWells(wellDict, inputDir, outputDir):
-    for well in wellDict.keys():
-        t0=time.time()
-        print("Starting on wellID:", well)
-        ncols = wellDict[well]['ncols']
-        nrows = wellDict[well]['nrows']
-        #outArray = np.ones((nTimepoints, ypix, xpix), dtype='float')
-        #print("well array shape:", outArray.shape)
-        for r in range(nrows):
-            for c in range(ncols):
-                loadme = os.path.join(inputDir, wellDict[well]['positions'][(r,c)])
-                print("Working on...", loadme)
-                inArray = skimage.io.imread(loadme)
-                outArray = normalize_frame(inArray)
+    print("All done, it took ", round(time.time() - tStart, 2), " s in total!")
 
 
-        saveme=os.path.join(outputDir, str(well)+"_nomalized.tif")
-        skimage.io.imsave(saveme, outArray, )
-        print("Done with wellID: ", well, "in ", round(time.time()-t0,2), " s")
 
 #stitchWells(wellDict, indir, outdir, 0.25)

@@ -4,6 +4,8 @@ from Numpy_tiling import stitchWells
 import sys
 from PyQt4 import QtGui, QtCore
 
+
+
 class EmittingStream(QtCore.QObject):
 
     textWritten = QtCore.pyqtSignal(str)
@@ -20,7 +22,7 @@ class ErrorEmittingStream(QtCore.QObject):
 
 
 class StitchThread(QtCore.QThread):
-
+    #Runs the stitching in a separate thread in order not to freeze the GUI
     def __init__(self, wellDict, indir, outdir, rescale):
         QtCore.QThread.__init__(self)
         self.wellDict = wellDict
@@ -137,7 +139,7 @@ class AppWindow(QtGui.QWidget):
 
 
         self.setLayout(vbox)
-        self.setGeometry(300, 300, 300, 500)
+        self.setGeometry(300, 300, 900, 500)
         self.setWindowTitle("Stitch buddy")
         self.setWindowIcon(QtGui.QIcon("logo.png"))
         #self.center()
