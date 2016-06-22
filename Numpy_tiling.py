@@ -95,12 +95,16 @@ def stitchWells(wellDict, inputDir, outputDir, resizeTo=None):
         nChans, nTimepoints = wellDict[well]['nChannels'], wellDict[well]['nTimepoints']
         nSlices = wellDict[well]['nSlices']
         frame_interval, time_unit  = wellDict[well]['frame_interval'], wellDict[well]['timeunit']
-        pixType = wellDict[well]['pixelType']
+
+        pixelDepthDict = {8: "uint8", 16:"uint16", 32:"float32"}
+        pixType = pixelDepthDict[wellDict[well]['pixelDepth']]
+
+
         xpix, ypix, pixel_resolution = wellDict[well]['xpix'], wellDict[well]['ypix'], wellDict[well]['pixel_resolution']
         outWidth = xpix*ncols
         outHeight = ypix*nrows
 
-        outArray = np.empty((nTimepoints, nSlices, nChans, outHeight, outWidth), dtype="uint16")
+        outArray = np.empty((nTimepoints, nSlices, nChans, outHeight, outWidth), dtype=pixType)
 
         print("well array shape:", outArray.shape)
 

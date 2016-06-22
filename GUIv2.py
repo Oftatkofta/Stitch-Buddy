@@ -36,6 +36,46 @@ class StitchThread(QtCore.QThread):
     def run(self):
         stitchWells(self.wellDict, self.indir, self.outdir, self.rescale)
 
+class WellRenamer(QtGui.QWidget):
+    """
+    Popup menu for renaming the wells in a wellDict.
+    """
+
+    def __init__(self, wellDict):
+        super(WellRenamer, self).__init__()
+        self.wellDict = wellDict
+        self.lbls = []
+        self.text_inputBoxes = []
+        self.initUI()
+
+    def initUI(self):
+
+        for k in self.wellDict.keys():
+            self.lbls.append(QtGui.QLabel(str(k), self))
+            self.text_inputBoxes.append(QtGui.QInputDialog().getText())
+
+        vbox = QtGui.QVBoxLayout()
+
+
+        for label, input in zip(self.lbls, self.text_inputBoxes):
+            hbox = QtGui.QHBoxLayout()
+            hbox.addWidget(label)
+            hbox.addWidget(input)
+            vbox.addLayout(hbox)
+
+        vbox.addStretch(1)
+        #vbox.addLayout(okCancelBox)
+
+        self.setLayout(vbox)
+        self.setGeometry(500, 300, 200, 300)
+        self.setWindowTitle("Rename wells")
+        self.setWindowIcon(QtGui.QIcon("logo.png"))
+
+        self.show()
+
+    def __del__(self):
+        print("__del__ run")
+
 class AppWindow(QtGui.QWidget):
 
     def __init__(self):
@@ -227,10 +267,12 @@ class AppWindow(QtGui.QWidget):
         if self.wellDict == None:
             print("No indir selected!")
 
-        else:
-            for key in self.wellDict:
-                print(self.wellDict[key])
+        self.popup = WellRenamer(self.wellDict)
+        self.popup.setGeometry(500, 300, 200, 300)
+        self.popup.setWindowTitle("Rename wells")
+        self.popup.setWindowIcon(QtGui.QIcon("logo.png"))
 
+        self.popup.show()
 
 
     def closeEvent(self, event):

@@ -276,7 +276,7 @@ except ImportError:
 #         "Tifffile.c can be obtained at http://www.lfd.uci.edu/~gohlke/")
 
 
-__version__ = '2016.04.18'
+__version__ = '2016.04.18_mod'
 __docformat__ = 'restructuredtext en'
 __all__ = (
     'imsave', 'imread', 'imshow', 'TiffFile', 'TiffWriter', 'TiffSequence',

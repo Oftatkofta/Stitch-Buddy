@@ -68,7 +68,7 @@ def filenamesToDict(indir, wellNameDict=None):
         page=tif[0]
         pixres=page.tags['x_resolution'].value #Assumes equal x/y resolution
         resoloution_unit = page.tags['resolution_unit'].value
-        pixelType = page.dtype
+        pixelDepth = page.tags['bits_per_sample'].value
 
 
     frame_interval = meta_data['summary']['WaitInterval']
@@ -106,7 +106,7 @@ def filenamesToDict(indir, wellNameDict=None):
                                 'timeunit':'ms',
                                 'pixel_resolution':pixres, #resolution stored as rational in tif tag
                                 'resoloution_unit': resoloution_unit,
-                                'pixelType':str(pixelType),
+                                'pixelDepth':pixelDepth,
                                 'positions':{},
                                 'files':[],
                                 'isConcat':isConcat
