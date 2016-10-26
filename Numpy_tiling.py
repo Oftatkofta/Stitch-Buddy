@@ -3,12 +3,7 @@ from frankenScope_well_reshape import filenamesToDict
 import os
 import numpy as np
 from skimage.transform import rescale, resize
-try :
-    import Stitchit.Stitchit.tiffile_mod as tiffile
-
-except ImportError:
-    import Stitchit.tiffile_mod as tiffile
-
+import tiffile_mod as tiffile
 import time
 from fractions import Fraction
 from matplotlib import pyplot as plt

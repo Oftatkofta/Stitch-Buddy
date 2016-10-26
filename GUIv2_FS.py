@@ -213,7 +213,7 @@ class AppWindow(QtGui.QWidget):
     def select_outdir(self):
         self.outdir = QtGui.QFileDialog.getExistingDirectory(None,
                                                             'Select output folder...',
-                                                            'O:\\',
+                                                            'O:\\tempout\\',
                                                             QtGui.QFileDialog.ShowDirsOnly)
 
         self.outdir_lbl.setText(str(self.outdir))
