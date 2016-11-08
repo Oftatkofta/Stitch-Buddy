@@ -3,15 +3,15 @@ from frankenScope_well_reshape import filenamesToDict
 import os
 import numpy as np
 from skimage.transform import rescale, resize
-import tiffile_mod as tiffile
+import tiffile as tiffile
 import time
 from fractions import Fraction
 from matplotlib import pyplot as plt
 
 
 #indir=r"O:\Jens\160408_HaCaT-H2B_12well_Calcium_T0_1h_2"
-#indir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/2C_2x2gridx2_2T_1"
-#outdir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/"
+indir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/4wells_2x2-mosaik_2-channel_4-frames_test_1"
+outdir=r"/Volumes/HDD/Huygens_SYNC/Raw OME files for test/testout"
 #outdir=r"O:\temp"
 
 #indir=r"O:\Jens\160610_HaCaT-H2B_Insert_serum_EGF_4"
@@ -19,33 +19,20 @@ from matplotlib import pyplot as plt
 
 
 
-wellNames = {2:"20_uM_CBD",
-             4:"50_uM_CBD",
-             5:"100_uM_CBD",
-             6:"150_uM_CBD",
-             7:"4_mM_EGTA",
-             8:"2_mM_EGTA",
-             10:"1_mM_EGTA",
-             11:"0.5_mM_EGTA",
-             12:"serum",
-             14:"no_serum",
-             15:"20ug_EGF_EpiLife",
+wellNames = {1:"Ass",
+             2:"hat",
+             3:"100_uM_CBD",
+             4:"150_uM_CBD",
              }
 
 
 
-#wellDict = filenamesToDict(indir, wellNames)
-#wellDict1 = {wellDict.keys()[0]: wellDict[wellDict.keys()[0]]}
-
-#flatfield = skimage.io.imread(r"C:\Users\Franken_Scope\Desktop\160126 Flatfield correction\20X 0.5NA\MED_20x 0.5NA_DICII_4x4 bin.tif")
-#background = skimage.io.imread(r"C:\Users\Franken_Scope\Desktop\160126 Flatfield correction\Dark references\160205_dark_frame_4x4_bin.tif")
-#flatfield = skimage.io.imread(r"O:\Jens\160304_processed_ffcorr\MED_20x 0.5NA_DICII_4x4 bin.tif")
-#flatfield_image = np.divide(np.asarray(flatfield, dtype='float'), np.amax(flatfield))
+wellDict = filenamesToDict(indir, wellNames)
 
 def bin_ndarray(ndarray, new_shape, operation='mean'):
     """
-    Bins an ndarray in all axes based on the target shape, by summing or
-        averaging.
+    Bins an ndarray in all axes based on the target shape, by summing,
+        averaging, or returning min/max pixel value
 
     Number of output dimensions must match number of input dimensions and
         new axes must divide old ones.
@@ -160,4 +147,4 @@ def stitchWells(wellDict, inputDir, outputDir, resizeTo=None):
 
 
 
-#stitchWells(wellDict, indir, outdir, 0.25)
+stitchWells(wellDict, indir, outdir)

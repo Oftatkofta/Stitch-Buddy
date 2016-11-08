@@ -1,10 +1,3 @@
-from __future__ import print_function, division, absolute_import
-import re
-import os
-
-import tiffile as tiffile
-
-
 def filenamesToDict(indir, wellNameDict=None):
 
     """
@@ -46,8 +39,8 @@ def filenamesToDict(indir, wellNameDict=None):
 
     #Regex used to flexibly identify wells, rows, columns, and split files from filenames
 
-    #Matches any number of digits preceded by "MMStack_" and followed by "-"
-    well_regex = re.compile("(?<=MMStack_)\d+(?=-)")
+    #Matches any number of digits preceded by "_" and followed by "-"
+    well_regex = re.compile("(?<=_)\d+(?=-)")
 
     #Matches three digits preceded by three digits and "_"
     column_regex = re.compile("(?<=\d{3}_)\d{3}")
