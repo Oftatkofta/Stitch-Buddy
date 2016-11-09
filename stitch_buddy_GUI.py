@@ -1,6 +1,5 @@
 from __future__ import print_function, division, absolute_import
-from frankenScope_well_reshape import filenamesToDict
-from Numpy_tiling import stitchWells
+from stitch_buddy import *
 import sys
 from PyQt4 import QtGui, QtCore
 
@@ -34,7 +33,7 @@ class StitchThread(QtCore.QThread):
         self.quit()
 
     def run(self):
-        stitchWells(self.wellDict, self.indir, self.outdir, self.rescale)
+        stitchWellsInRAM(self.wellDict, self.indir, self.outdir, self.rescale)
 
 class WellRenamer(QtGui.QWidget):
     """

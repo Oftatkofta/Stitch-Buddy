@@ -1,3 +1,11 @@
+from __future__ import print_function, division, absolute_import
+import re
+import os
+import numpy as np
+import tiffile as tiffile
+import time
+from fractions import Fraction
+
 def filenamesToDict(indir, wellNameDict=None):
 
     """
@@ -39,8 +47,8 @@ def filenamesToDict(indir, wellNameDict=None):
 
     #Regex used to flexibly identify wells, rows, columns, and split files from filenames
 
-    #Matches any number of digits preceded by "_" and followed by "-"
-    well_regex = re.compile("(?<=_)\d+(?=-)")
+    #Matches any number of digits preceded by "MMStack_" and followed by "-"
+    well_regex = re.compile("(?<=MMStack_)\d+(?=-)")
 
     #Matches three digits preceded by three digits and "_"
     column_regex = re.compile("(?<=\d{3}_)\d{3}")
@@ -121,3 +129,258 @@ def filenamesToDict(indir, wellNameDict=None):
             wellDict[wellID]['isConcat'] = isConcat
 
     return wellDict
+
+def bin_ndarray(ndarray, new_shape, operation='mean'):
+	"""
+	Bins an ndarray in all axes based on the target shape, by summing,
+		averaging, or returning min/max pixel value
+
+	Number of output dimensions must match number of input dimensions and
+		new axes must divide old ones.
+
+	Example
+	-------
+	>>> m = np.arange(0,100,1).reshape((10,10))
+	>>> n = bin_ndarray(m, new_shape=(5,5), operation='sum')
+	>>> print(n)
+
+	[[ 22  30  38  46  54]
+	 [102 110 118 126 134]
+	 [182 190 198 206 214]
+	 [262 270 278 286 294]
+	 [342 350 358 366 374]]
+
+	"""
+	operation = operation.lower()
+	if not operation in ['sum', 'mean', 'max', 'min']:
+		raise ValueError("Operation not supported.")
+	if ndarray.ndim != len(new_shape):
+		raise ValueError("Shape mismatch: {} -> {}".format(ndarray.shape,
+														   new_shape))
+	compression_pairs = [(d, c//d) for d,c in zip(new_shape,
+												  ndarray.shape)]
+	flattened = [int(l) for p in compression_pairs for l in p]
+	ndarray = ndarray.reshape(flattened)
+	for i in range(len(new_shape)):
+		op = getattr(ndarray, operation)
+		ndarray = op(-1*(i+1))
+	return ndarray
+
+def stitchWellsOnDisk(wellDict, inputDir, outputDir, resizeTo=None):
+	"""
+	Avoids loading constituent files in to RAM. Stitches and rescales frame-by frame instead.
+	Args:
+	    wellDict: (dict) wellID:filename
+	    inputDir: str or os.path
+	    outputDir: str or os.path
+	    resizeTo: Factor to rezie to, mus be a factor of 2
+
+	Returns:
+
+	"""
+
+
+	tStart=time.time()
+
+	for well in wellDict.keys():
+		t0=time.time()
+		print("Starting on wellID:", well)
+		ncols = wellDict[well]['ncols']
+		nrows = wellDict[well]['nrows']
+		nChans = wellDict[well]['nChannels']
+		nTimepoints = wellDict[well]['nTimepoints']
+		nSlices = wellDict[well]['nSlices']
+		frame_interval = wellDict[well]['frame_interval']
+		time_unit  = wellDict[well]['timeunit']
+		pixelDepthDict = {8: "uint8", 16:"uint16", 32:"float32"}
+		pixType = pixelDepthDict[wellDict[well]['pixelDepth']]
+		xpix = wellDict[well]['xpix']
+		ypix = wellDict[well]['ypix']
+		pixel_resolution = wellDict[well]['pixel_resolution']
+
+		outWidth = xpix*ncols
+		outHeight = ypix*nrows
+
+		if resizeTo != None:
+			old_resolution = pixel_resolution[1]/float(pixel_resolution[0])
+			print("old resolution; {}, rational: {}".format(old_resolution,
+			                                                pixel_resolution))
+			new_resolution = old_resolution*resizeTo
+			rational_new_resolution = Fraction(new_resolution).limit_denominator()
+
+			pixel_resolution = (rational_new_resolution.denominator,
+								rational_new_resolution.numerator)
+			print("new resolution; {}, rational: {}".format(new_resolution,
+			                                                pixel_resolution))
+			outArray = np.empty(
+				(nTimepoints, nSlices, nChans, outHeight*resizeTo, outWidth*resizeTo),
+				dtype=pixType)
+
+		else:
+			outArray = np.empty(
+				(nTimepoints, nSlices, nChans, outHeight, outWidth),
+				dtype=pixType)
+
+		full_frame_buffer = np.empty((1, nSlices, nChans, outHeight, outWidth),
+				dtype=pixType)
+
+		print("output well array shape: {}, full_frame_array shape; {}".format(outArray.shape, full_frame_buffer.shape) )
+
+
+		for frame in range(nTimepoints):
+			t1 = time.time()
+			print("Working on frame: {}".format(frame))
+			for row in range(nrows):
+				for col in range(ncols):
+					#get name of file at this row, col position
+					loadme = os.path.join(inputDir,
+										  wellDict[well]['positions'][(row, col)][0]
+										  )
+					#X/Y coordinates for insertion of subframe
+					startX = (ncols-col-1)*xpix
+					startY = row*ypix
+
+					#is_ome is set to False so that all .asarray calls will return the same shape
+					with tiffile.TiffFile(loadme, is_ome = False) as tif:
+						#only get current frame with channels and slices as an array
+						if nSlices == 1:
+							slice_to_load = slice(frame * nChans,
+							                      (frame + 1) * nChans)
+						else:
+							slice_to_load = slice(frame*(nChans+nSlices),
+							                      (frame+1)*(nChans+nSlices))
+
+						inArray = tif.asarray(key=slice_to_load)
+
+						try:
+							full_frame_buffer[:,:,:, startY:(startY + ypix), startX:(startX + xpix)] = inArray
+						except:
+							inArray = np.reshape(inArray, (1, nSlices, nChans, xpix, ypix))
+							#print("Input array reshaped to: {}".format(inArray.shape))
+							full_frame_buffer[:,:,:, startY:(startY + ypix), startX:(startX + xpix)] = inArray
+						print("Frame: {}, Row: {}, Col: {} loaded from file: {} array shape: {}".format(
+							frame, row, col, tif.filename, inArray.shape))
+
+
+			if resizeTo != None:
+
+				resized_frame_buffer = bin_ndarray(full_frame_buffer, (1, nSlices, nChans, outHeight*resizeTo, outWidth*resizeTo))
+				print("full_fame_buffer resized to {}".format(resized_frame_buffer.shape))
+
+				outArray[frame,:,:,:,:] = resized_frame_buffer
+
+			else:
+				outArray[frame,:,:,:,:] = full_frame_buffer
+
+			print("Frame, done in {} s. Elapsed time for well: {} min,  Since start: {} min".format(round((time.time() - t1), 1),
+																								round((time.time() - t0)/60),
+																								round((time.time() - tStart)/60)))
+
+		saveme=os.path.join(outputDir, str(well)+"_stitched.tif")
+		bigTiffFlag = outArray.size * outArray.dtype.itemsize > 2000 * 2 ** 20
+		print("bigTillFlag set to:", bigTiffFlag, "Saving output...(may take a while)")
+
+		metadata = {"zStack" : bool(1-nSlices),
+					"unit":"um",
+					"tunit": time_unit,
+					"finterval" : frame_interval
+					}
+
+		save_data = {"bigtiff" : bigTiffFlag,
+					"imagej" : True,
+					"resolution" : (pixel_resolution, pixel_resolution),
+					"metadata" : metadata
+					}
+
+		tiffile.imsave(saveme, outArray, **save_data)
+
+		print("Done with wellID: ", well, "in ", round(time.time() - t0, 2),
+			  " s")
+	print("All done, it took ", round(time.time() - tStart, 2), " s in total!")
+
+def stitchWellsInRAM(wellDict, inputDir, outputDir, resizeTo=None):
+
+    tStart=time.time()
+
+    for well in wellDict.keys():
+        t0=time.time()
+        print("Starting on wellID:", well)
+        ncols = wellDict[well]['ncols']
+        nrows = wellDict[well]['nrows']
+        nChans, nTimepoints = wellDict[well]['nChannels'], wellDict[well]['nTimepoints']
+        nSlices = wellDict[well]['nSlices']
+        frame_interval, time_unit  = wellDict[well]['frame_interval'], wellDict[well]['timeunit']
+
+        pixelDepthDict = {8: "uint8", 16:"uint16", 32:"float32"}
+        pixType = pixelDepthDict[wellDict[well]['pixelDepth']]
+
+
+        xpix, ypix, pixel_resolution = wellDict[well]['xpix'], wellDict[well]['ypix'], wellDict[well]['pixel_resolution']
+        outWidth = xpix*ncols
+        outHeight = ypix*nrows
+
+        outArray = np.empty((nTimepoints, nSlices, nChans, outHeight, outWidth), dtype=pixType)
+
+        print("well array shape:", outArray.shape)
+
+        for r in range(nrows):
+            for c in range(ncols):
+                t1 = time.time()
+                startX = (ncols-c-1)*xpix
+                startY = r*ypix
+                loadme = os.path.join(inputDir, wellDict[well]['positions'][(r,c)][0])
+                print("Working on file: ", str(loadme))
+
+                with tiffile.TiffFile(loadme) as tif:
+                    inArray = tif.asarray()
+                    print("File loaded as array, shape: ", inArray.shape, "loadtime: ", round(time.time() - t1), " s")
+
+                try:
+                    outArray[:,:,:, startY:(startY+ypix), startX:(startX+xpix)] = inArray
+                except:
+                    inArray = np.reshape(inArray, (nTimepoints, nSlices, nChans, xpix, ypix))
+                    print("Input array reshaped to: ", inArray.shape)
+                    outArray[:,:,:, startY:(startY + ypix), startX:(startX + xpix)] = inArray
+
+                print("Input array appended to OutArray. Elapsed time for well: ", round(time.time() - t0))
+
+        saveme=os.path.join(outputDir, str(well)+"_stitched.tif")
+
+        if resizeTo != None:
+            old_resolution = pixel_resolution[1]/float(pixel_resolution[0])
+            new_resolution = old_resolution*resizeTo
+            rational_new_resolution = Fraction(new_resolution).limit_denominator()
+            print(pixel_resolution)
+            pixel_resolution = (rational_new_resolution.denominator,
+                                rational_new_resolution.numerator)
+            print(pixel_resolution)
+            print("Resizing outArray...")
+            t=time.time()
+            outArray = bin_ndarray(outArray, ((nTimepoints, nSlices, nChans,
+                                               outHeight*resizeTo,
+                                               outWidth*resizeTo))).astype("uint16")
+            print("Done!", round(time.time()-t), " s")
+        bigTiffFlag = outArray.size * outArray.dtype.itemsize > 2000 * 2 ** 20
+        print("bigTillFlag set to:", bigTiffFlag, "Saving output...(may take a while)")
+
+        metadata = {"zStack" : bool(1-nSlices),
+                    "unit":"um",
+                    "tunit": time_unit,
+                    "finterval" : frame_interval
+                    }
+
+        save_data = {"bigtiff" : bigTiffFlag,
+                    "imagej" : True,
+                    "resolution" : (pixel_resolution, pixel_resolution),
+                    "metadata" : metadata
+                    }
+        tiffile.imsave(saveme, outArray, **save_data)
+        print("Done with wellID: ", well, "in ", round(time.time()-t0,2), " s")
+    print("All done, it took ", round(time.time() - tStart, 2), " s in total!")
+
+
+
+
+
+
+

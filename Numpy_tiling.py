@@ -147,4 +147,3 @@ def stitchWells(wellDict, inputDir, outputDir, resizeTo=None):
 
 
 
-stitchWells(wellDict, indir, outdir)
