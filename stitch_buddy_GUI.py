@@ -1,29 +1,29 @@
 from __future__ import print_function, division, absolute_import
 from stitch_buddy import *
 import sys
-from PyQt4 import QtGui, QtCore
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 
 
+class EmittingStream(QObject):
 
-class EmittingStream(QtCore.QObject):
-
-	textWritten = QtCore.pyqtSignal(str)
+	textWritten = pyqtSignal(str)
 
 	def write(self, text):
 		self.textWritten.emit(str(text))
 
-class ErrorEmittingStream(QtCore.QObject):
+class ErrorEmittingStream(QObject):
 
-	textWritten = QtCore.pyqtSignal(str)
+	textWritten = pyqtSignal(str)
 
 	def write(self, errortext):
 		self.textWritten.emit(str(errortext))
 
 
-class StitchThread(QtCore.QThread):
+class StitchThread(QThread):
 	#Runs the stitching in a separate thread in order not to freeze the GUI
 	def __init__(self, wellDict, indir, outdir, rescale, RAMstitchFlag):
-		QtCore.QThread.__init__(self)
+		QThread.__init__(self)
 		self.wellDict = wellDict
 		self.indir = indir
 		self.outdir = outdir
@@ -43,7 +43,7 @@ class StitchThread(QtCore.QThread):
 		else:
 			stitchWellsOnDisk(self.wellDict, self.indir, self.outdir, self.rescale)
 
-class WellRenamer(QtGui.QWidget):
+class WellRenamer(QWidget):
 	"""
 	Popup menu for renaming the wells in a wellDict.
 	"""
@@ -51,38 +51,46 @@ class WellRenamer(QtGui.QWidget):
 	def __init__(self, wellDict):
 		super(WellRenamer, self).__init__()
 		self.wellDict = wellDict
-		self.lbls = []
-		self.text_inputBoxes = []
+		self.inputs = []
 		self.initUI()
 
 	def initUI(self):
 
-		vbox = QtGui.QVBoxLayout()
+		fbox = QFormLayout()
+		col1_lbl = QLabel("old name:", self)
+		col2_lbl = QLabel("new filename:", self)
+		fbox.addRow(col1_lbl, col2_lbl)
+
+
 
 		for k in self.wellDict.keys():
 
-			hbox = QtGui.QHBoxLayout()
 
-			label = QtGui.QLabel(str(k), self)
-			hbox.addWidget(label)
-			txtinput = QtGui.QInputDialog.getText(self, label, str(k))
-			hbox.addWidget(txtinput)
-			vbox.addLayout(hbox)
+			label = QLabel(str(k)+":", self)
+			txtinput = QLineEdit(str(k))
+			fbox.addRow(label, txtinput)
+			self.inputs.append((label, txtinput))
 
-		vbox.addStretch(1)
-		#vbox.addLayout(okCancelBox)
-
-		self.setLayout(vbox)
+		ok_btn = QPushButton("Ok", self)
+		ok_btn.clicked.connect(self.update_welldict)
+		fbox.addRow(ok_btn)
+		self.setLayout(fbox)
 		self.setGeometry(500, 300, 200, 300)
 		self.setWindowTitle("Rename wells")
-		self.setWindowIcon(QtGui.QIcon("logo.png"))
+		self.setWindowIcon(QIcon("logo.png"))
 
 		self.show()
+
+	def update_welldict(self):
+		for k in self.inputs:
+			print(k[1].text())
+
+
 
 	def __del__(self):
 		print("__del__ run")
 
-class AppWindow(QtGui.QWidget):
+class AppWindow(QWidget):
 
 	def __init__(self):
 		super(AppWindow, self).__init__()
@@ -90,6 +98,7 @@ class AppWindow(QtGui.QWidget):
 		self.indir = None
 		self.outdir = None
 		self.wellDict = None
+		self.wellDict = filenamesToDict("/Volumes/HDD/Huygens_SYNC/Raw OME files for test/4wells_2x2-mosaik_2-channel_4-frames_test_1/")
 		self.rescale = 0.5
 		self.RAMstitchFlag = True
 
@@ -108,13 +117,13 @@ class AppWindow(QtGui.QWidget):
 	def initUI(self):
 
 		#All visible lables in order top->bottom
-		lbl1 = QtGui.QLabel("Load files from this directory:", self)
+		lbl1 = QLabel("Load files from this directory:", self)
 		btn1_label = "Select input directory"
-		self.indir_lbl = QtGui.QLabel(str(self.indir), self)
+		self.indir_lbl = QLabel(str(self.indir), self)
 
-		lbl2 = QtGui.QLabel("Save stitched files to this directory:", self)
+		lbl2 = QLabel("Save stitched files to this directory:", self)
 		btn2_label = "Select output directory"
-		self.outdir_lbl = QtGui.QLabel(str(self.outdir), self)
+		self.outdir_lbl = QLabel(str(self.outdir), self)
 
 		btn3_label = "Rename wells (optional)"
 
@@ -131,62 +140,62 @@ class AppWindow(QtGui.QWidget):
 				"the size of the output is greater than the available RAM"
 
 		#Make buttons work
-		btn1 = QtGui.QPushButton(btn1_label, self)
+		btn1 = QPushButton(btn1_label, self)
 		btn1.clicked.connect(self.select_indir)
 		btn1.setToolTip(btn1_tooltip)
 		btn1.resize(btn1.sizeHint())
 
-		btn2 = QtGui.QPushButton(btn2_label, self)
+		btn2 = QPushButton(btn2_label, self)
 		btn2.clicked.connect(self.select_outdir)
 		btn2.setToolTip(btn1_tooltip)
 		btn2.resize(btn2.sizeHint())
 
-		btn3 = QtGui.QPushButton(btn3_label, self)
+		btn3 = QPushButton(btn3_label, self)
 		btn3.clicked.connect(self.rename_wells)
 		btn3.setToolTip(btn3_tooltip)
 		btn3.resize(btn3.sizeHint())
 
-		ramStitchCeckBox = QtGui.QCheckBox("Stitch in RAM (runs VERY slow if unchecked!)", self)
+		ramStitchCeckBox = QCheckBox("Stitch in RAM (runs VERY slow if unchecked!)", self)
 		ramStitchCeckBox.setToolTip(ramStitchCeckbox_tooltip)
 		ramStitchCeckBox.toggle()
 		ramStitchCeckBox.stateChanged.connect(self.checkboxState)
 
-		self.rescale_lbl = QtGui.QLabel("Output will be rescaled with a factor of: "+str(self.rescale))
+		self.rescale_lbl = QLabel("Output will be rescaled with a factor of: "+str(self.rescale))
 
-		rescale_btn = QtGui.QComboBox(self)
+		rescale_btn = QComboBox(self)
 		rescale_btn.addItem("Rescale by 1/2 (default)")
 		rescale_btn.addItem("Rescale by 1 (no rescaling)")
 		rescale_btn.addItem("Rescale by 1/4")
 		rescale_btn.activated[str].connect(self.set_rescale)
 
 		#textbox to log output and errors from component functions
-		self.logOutput = QtGui.QTextEdit()
+		self.logOutput = QTextEdit()
 		self.logOutput.setReadOnly(True)
 
 
-		qbtn = QtGui.QPushButton("Quit", self)
-		qbtn.clicked.connect(QtCore.QCoreApplication.instance().quit)
+		qbtn = QPushButton("Quit", self)
+		qbtn.clicked.connect(QCoreApplication.instance().quit)
 		qbtn.resize(qbtn.sizeHint())
 
-		runButton = QtGui.QPushButton("Run...", self)
+		runButton = QPushButton("Run...", self)
 		runButton.clicked.connect(self.run_stitching)
 		qbtn.resize(qbtn.sizeHint())
 
 		#Group run and quit buttons into one row
-		runQuitBox = QtGui.QHBoxLayout()
+		runQuitBox = QHBoxLayout()
 		runQuitBox.addWidget(runButton)
 		runQuitBox.addWidget(qbtn)
 
 		#Separator line
-		line1 = QtGui.QFrame()
-		line1.setFrameShape(QtGui.QFrame.HLine)
-		line1.setFrameShadow(QtGui.QFrame.Sunken)
+		line1 = QFrame()
+		line1.setFrameShape(QFrame.HLine)
+		line1.setFrameShadow(QFrame.Sunken)
 
 
 		verticalWidgets = [lbl1, self.indir_lbl, btn1, lbl2, self.outdir_lbl,
 						   btn2, line1, btn3, self.rescale_lbl, rescale_btn, ramStitchCeckBox]
 
-		vbox = QtGui.QVBoxLayout()
+		vbox = QVBoxLayout()
 		for widget in verticalWidgets:
 			vbox.addWidget(widget)
 
@@ -198,7 +207,7 @@ class AppWindow(QtGui.QWidget):
 		self.setLayout(vbox)
 		self.setGeometry(300, 300, 900, 500)
 		self.setWindowTitle("Stitch buddy")
-		self.setWindowIcon(QtGui.QIcon("logo.png"))
+		self.setWindowIcon(QIcon("logo.png"))
 		#self.center()
 		self.show()
 
@@ -218,7 +227,7 @@ class AppWindow(QtGui.QWidget):
 
 	def checkboxState(self, state):
 
-		if state == QtCore.Qt.Checked:
+		if state == Qt.Checked:
 			self.RAMstitchFlag = True
 		else:
 			self.RAMstitchFlag = False
@@ -239,14 +248,14 @@ class AppWindow(QtGui.QWidget):
 		"""Append red error text to the QTextEdit."""
 
 		#sets fontcolor to red for warnings
-		color = QtGui.QColor(255, 0, 0)
+		color = QColor(255, 0, 0)
 		self.logOutput.setTextColor(color)
 
 		#Write ouput to log
 		self.logOutput.insertPlainText(errortext)
 
 		#Set fontcolor back to black
-		color = QtGui.QColor(0, 0, 0)
+		color = QColor(0, 0, 0)
 		self.logOutput.setTextColor(color)
 
 		#Autoscroll the text
@@ -256,9 +265,9 @@ class AppWindow(QtGui.QWidget):
 
 	def showDialog(self):
 
-		col = QtGui.QColorDialog.getColor()
+		col = QColorDialog.getColor()
 
-		text, ok = QtGui.QInputDialog.getText(self, "input dialog",
+		text, ok = QInputDialog.getText(self, "input dialog",
 											  "Enter name:")
 		if ok:
 			self.le.setText(str(text))
@@ -266,25 +275,25 @@ class AppWindow(QtGui.QWidget):
 
 
 	def select_indir(self):
-		self.indir = QtGui.QFileDialog.getExistingDirectory(None,
+		self.indir = QFileDialog.getExistingDirectory(None,
 															'Select input folder...',
 															'/Volumes/HDD/Huygens_SYNC/Raw OME files for test/4wells_2x2-mosaik_2-channel_4-frames_test_1/',
-															QtGui.QFileDialog.ShowDirsOnly)
+															QFileDialog.ShowDirsOnly)
 
 		self.wellDict = filenamesToDict(str(self.indir))
 		self.indir_lbl.setText(str(self.indir))
-		boldFont = QtGui.QFont()
+		boldFont = QFont()
 		boldFont.setBold(True)
 		self.indir_lbl.setFont(boldFont)
 
 	def select_outdir(self):
-		self.outdir = QtGui.QFileDialog.getExistingDirectory(None,
+		self.outdir = QFileDialog.getExistingDirectory(None,
 															'Select output folder...',
 															'/Volumes/HDD/Huygens_SYNC/Raw OME files for test/testout/',
-															QtGui.QFileDialog.ShowDirsOnly)
+															QFileDialog.ShowDirsOnly)
 
 		self.outdir_lbl.setText(str(self.outdir))
-		boldFont = QtGui.QFont()
+		boldFont = QFont()
 		boldFont.setBold(True)
 		self.outdir_lbl.setFont(boldFont)
 
@@ -297,18 +306,18 @@ class AppWindow(QtGui.QWidget):
 		self.popup = WellRenamer(self.wellDict)
 		self.popup.setGeometry(500, 300, 200, 300)
 		self.popup.setWindowTitle("Rename wells")
-		self.popup.setWindowIcon(QtGui.QIcon("logo.png"))
+		self.popup.setWindowIcon(QIcon("logo.png"))
 
 		self.popup.show()
 
 
 	def closeEvent(self, event):
 
-		reply = QtGui.QMessageBox.question(self, "Message",
+		reply = QMessageBox.question(self, "Message",
 										   "Are you sure you want to quit?",
-										   QtGui.QMessageBox.Yes | QtGui.QMessageBox.No,
-										   QtGui.QMessageBox.Yes)
-		if reply == QtGui.QMessageBox.Yes:
+										   QMessageBox.Yes | QMessageBox.No,
+										   QMessageBox.Yes)
+		if reply == QMessageBox.Yes:
 			event.accept()
 		else:
 			event.ignore()
@@ -316,7 +325,7 @@ class AppWindow(QtGui.QWidget):
 
 def main():
 
-	app = QtGui.QApplication(sys.argv)
+	app = QApplication(sys.argv)
 	showMe = AppWindow()
 	sys.exit(app.exec_())
 
