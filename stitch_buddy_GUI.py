@@ -69,11 +69,16 @@ class WellRenamer(QWidget):
 			label = QLabel(str(k)+":", self)
 			txtinput = QLineEdit(str(k))
 			fbox.addRow(label, txtinput)
-			self.inputs.append((label, txtinput))
+			self.inputs.append((k, label, txtinput))
+
+
+		qbtn = QPushButton("Cancel", self)
+		qbtn.clicked.connect(self.close)
+		qbtn.resize(qbtn.sizeHint())
 
 		ok_btn = QPushButton("Ok", self)
 		ok_btn.clicked.connect(self.update_welldict)
-		fbox.addRow(ok_btn)
+		fbox.addRow(ok_btn, qbtn)
 		self.setLayout(fbox)
 		self.setGeometry(500, 300, 200, 300)
 		self.setWindowTitle("Rename wells")
@@ -82,8 +87,16 @@ class WellRenamer(QWidget):
 		self.show()
 
 	def update_welldict(self):
-		for k in self.inputs:
-			print(k[1].text())
+		out = {}
+		for entry in self.inputs:
+			new_well_name = entry[2].text()
+			out[new_well_name] = self.wellDict[entry[0]]
+		self.wellDict = out
+		self.close()
+
+	def getWelldict(self):
+		return self.wellDict
+
 
 
 
@@ -218,6 +231,11 @@ class AppWindow(QWidget):
 
 	def run_stitching(self):
 		print("starting")
+		try:
+			self.wellDict = self.well_rename_popup.getWelldict()
+		except:
+			pass
+
 		separateThread = StitchThread(self.wellDict, str(self.indir),
 									  str(self.outdir), self.rescale,
 									  self.RAMstitchFlag)
@@ -303,12 +321,13 @@ class AppWindow(QWidget):
 		if self.wellDict == None:
 			print("No indir selected!")
 
-		self.popup = WellRenamer(self.wellDict)
-		self.popup.setGeometry(500, 300, 200, 300)
-		self.popup.setWindowTitle("Rename wells")
-		self.popup.setWindowIcon(QIcon("logo.png"))
+		self.well_rename_popup = WellRenamer(self.wellDict)
+		self.well_rename_popup.setGeometry(500, 300, 200, 300)
+		self.well_rename_popup.setWindowTitle("Rename wells")
+		self.well_rename_popup.setWindowIcon(QIcon("logo.png"))
 
-		self.popup.show()
+		self.well_rename_popup.show()
+		#self.welldict is updated before the stitchingThread is run
 
 
 	def closeEvent(self, event):
