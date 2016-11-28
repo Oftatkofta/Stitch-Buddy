@@ -1,4 +1,8 @@
 __author__ = 'jens_e'
+
+"""
+Quick and dirty script to generate a tile configuation for the ImageJ/FIJI stitching plugin
+"""
 import math
 #fin = open("TileConfiguration_gen.txt", 'r').readlines()
 

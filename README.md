@@ -1,4 +1,3 @@
-# Stitchit
-Python script to stitch MicroManager multiwell mosaiks 
+# Stitchbuddy
 
-Hopefully a GUI will be implemented too.
+A GUI wrapped Python script to stitch MicroManager multiwell mosaiks 
