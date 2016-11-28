@@ -31,6 +31,7 @@ def filenamesToDict(indir, wellNameDict=None):
                     'positions': position_dict gives file at position (row,col)
                     'files':(list) names of files in well
                     'isConcat':(bool) If the sequence is split in to multiple files
+                    'OME-XML':None <- Not implemented yet
 
     position_dict = {(row, col):filename(s)}
 
@@ -68,6 +69,7 @@ def filenamesToDict(indir, wellNameDict=None):
         pixres=page.tags['x_resolution'].value #Assumes equal x/y resolution
         resoloution_unit = page.tags['resolution_unit'].value
         pixelDepth = page.tags['bits_per_sample'].value
+        omexml = page.tags['image_description'].value
 
 
 
@@ -110,7 +112,7 @@ def filenamesToDict(indir, wellNameDict=None):
                                 'positions':{},
                                 'files':[],
                                 'isConcat':isConcat,
-                                'OME-XML':None
+                                'OME-XML':omexml
                                 }
 
         #Populate Properties
