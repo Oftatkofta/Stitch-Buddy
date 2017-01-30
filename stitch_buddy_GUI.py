@@ -5,6 +5,9 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 
+defalult_indir =r"P:\Stig Ove"
+defalut_outdir=r"Q:\\"
+
 class EmittingStream(QObject):
 
 	textWritten = pyqtSignal(str)
@@ -120,7 +123,6 @@ class AppWindow(QWidget):
 		self.indir = None
 		self.outdir = None
 		self.wellDict = None
-		self.wellDict = filenamesToDict("/Volumes/HDD/Huygens_SYNC/Raw OME files for test/4wells_2x2-mosaik_2-channel_4-frames_test_1/")
 		self.rescale = 0.5
 		self.RAMstitchFlag = True
 
@@ -304,7 +306,7 @@ class AppWindow(QWidget):
 	def select_indir(self):
 		self.indir = QFileDialog.getExistingDirectory(None,
 															'Select input folder...',
-															'/Volumes/HDD/Huygens_SYNC/Raw OME files for test/4wells_2x2-mosaik_2-channel_4-frames_test_1/',
+															defalult_indir,
 															QFileDialog.ShowDirsOnly)
 
 		self.wellDict = filenamesToDict(str(self.indir))
@@ -316,7 +318,7 @@ class AppWindow(QWidget):
 	def select_outdir(self):
 		self.outdir = QFileDialog.getExistingDirectory(None,
 															'Select output folder...',
-															'/Volumes/HDD/Huygens_SYNC/Raw OME files for test/testout/',
+															defalut_outdir,
 															QFileDialog.ShowDirsOnly)
 
 		self.outdir_lbl.setText(str(self.outdir))
