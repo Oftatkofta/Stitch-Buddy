@@ -45,7 +45,7 @@ class StitchThread(QThread):
 
 class WellRenamer(QWidget):
 	"""
-	Popup menu for renaming the wells in a wellDict.
+	Popup menu for renaming or removing the wells in a wellDict.
 	"""
 
 	def __init__(self, wellDict):
@@ -56,21 +56,27 @@ class WellRenamer(QWidget):
 
 	def initUI(self):
 
-		fbox = QFormLayout()
+		grid = QGridLayout()
 		col1_lbl = QLabel("old name:", self)
 		col2_lbl = QLabel("new filename:", self)
-		fbox.addRow(col1_lbl, col2_lbl)
-
-
+		col3_lbl = QLabel("Use well in stitching?", self)
+		grid.addWidget(col1_lbl, 0, 0) #row 0, col 0
+		grid.addWidget(col2_lbl, 0, 1)
+		grid.addWidget(col3_lbl, 0, 2)
+		row = 1
 
 		for k in self.wellDict.keys():
 
-
 			label = QLabel(str(k)+":", self)
 			txtinput = QLineEdit(str(k))
-			fbox.addRow(label, txtinput)
-			self.inputs.append((k, label, txtinput))
+			checkbox = QCheckBox()
+			checkbox.setChecked(True)
+			grid.addWidget(label, row, 0)
+			grid.addWidget(txtinput, row, 1)
+			grid.addWidget(checkbox, row, 2)
 
+			self.inputs.append((k, label, txtinput, checkbox))
+			row+=1
 
 		qbtn = QPushButton("Cancel", self)
 		qbtn.clicked.connect(self.close)
@@ -78,10 +84,12 @@ class WellRenamer(QWidget):
 
 		ok_btn = QPushButton("Ok", self)
 		ok_btn.clicked.connect(self.update_welldict)
-		fbox.addRow(ok_btn, qbtn)
-		self.setLayout(fbox)
+		grid.addWidget(ok_btn, row, 0)
+		grid.addWidget(qbtn, row, 2)
+
+		self.setLayout(grid)
 		self.setGeometry(500, 300, 200, 300)
-		self.setWindowTitle("Rename wells")
+		self.setWindowTitle("Rename & delete wells")
 		self.setWindowIcon(QIcon("logo.png"))
 
 		self.show()
@@ -89,8 +97,9 @@ class WellRenamer(QWidget):
 	def update_welldict(self):
 		out = {}
 		for entry in self.inputs:
-			new_well_name = entry[2].text()
-			out[new_well_name] = self.wellDict[entry[0]]
+			if entry[3].isChecked():
+				new_well_name = entry[2].text()
+				out[new_well_name] = self.wellDict[entry[0]]
 		self.wellDict = out
 		self.close()
 
