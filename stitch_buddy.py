@@ -5,11 +5,12 @@ import numpy as np
 import tiffile as tiffile
 import time
 from fractions import Fraction
+import warnings
 
 def filenamesToDict(indir, wellNameDict=None):
 
     """
-    Transforms the .tif-files in a directory into a dictionary.
+    Transforms the (ome).tif stack-files in a directory into a dictionary.
 
     Filenames must conform to the following general pattern:
     ..._wellID-xxx_threeDigitRowNumber_threeDigitColNumber...
@@ -41,6 +42,7 @@ def filenamesToDict(indir, wellNameDict=None):
     """
     # Ingore non-.tif files in indir
     filenames = [fname for fname in os.listdir(indir) if ".tif" in fname]
+    filenames.sort()
 
     wellDict = {}
 
@@ -61,24 +63,40 @@ def filenamesToDict(indir, wellNameDict=None):
     concat_regex = re.compile("(?<=\d{3}_\d{3}_)\d(?=\.ome)")
 
     first_file = os.path.join(indir, filenames[0])
+    print("Opening the first file: \"%s\" to read its MicroManager metadata..." % first_file)
+
 
     with tiffile.TiffFile(first_file) as tif:
-        meta_data = tif.micromanager_metadata
+
         frames = len(tif.pages)
-        page=tif[0]
+        page = tif[0]
+        print("There are %s frames and their shape is %s" % (frames, page.shape) )
+
         pixres=page.tags['x_resolution'].value #Assumes equal x/y resolution
         resoloution_unit = page.tags['resolution_unit'].value
+        resoloution_unit = {1: 'none', 2: 'inch', 3: 'centimeter'}[resoloution_unit]
         pixelDepth = page.tags['bits_per_sample'].value
         omexml = page.tags['image_description'].value
 
+        try:
+            meta_data = tif.micromanager_metadata
+            frame_interval = meta_data['summary']['WaitInterval']
+            ypix, xpix = meta_data['summary']['Height'], meta_data['summary']['Width']
+            nChannels = meta_data['summary']['Channels']
+            nSlices = meta_data['summary']['Slices']
+            nTimepoints = frames / (nChannels * nSlices)
 
-
-    frame_interval = meta_data['summary']['WaitInterval']
-    ypix, xpix = meta_data['summary']['Height'], meta_data['summary']['Width']
-    nChannels =  meta_data['summary']['Channels']
-    nSlices =  meta_data['summary']['Slices']
-    nTimepoints = frames/(nChannels*nSlices)
-    resoloution_unit =  {1: 'none', 2: 'inch', 3: 'centimeter'}[resoloution_unit]
+        except:
+            warnings.warn("Metadata read error!")
+            print("Something is wrong with the MicroManager metadata, replacing all values with defaults, this means"
+                  " that SCALING IS NOT CORRECT and the image stack is flattened over channels and slices!")
+            frames = page.shape[0]
+            meta_data = None
+            frame_interval = 1
+            ypix, xpix = page.shape[1], page.shape[2]
+            nChannels = 1
+            nSlices = 1
+            nTimepoints = frames
 
     for f in filenames:
         #Extract positioning information from filename with regex
