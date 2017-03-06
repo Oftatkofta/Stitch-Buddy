@@ -367,24 +367,29 @@ def stitchWellsInRAM(wellDict, inputDir, outputDir, resizeTo=None):
         saveme=os.path.join(outputDir, str(well)+"_stitched.tif")
 
         if resizeTo != None:
-            old_resolution = pixel_resolution[1]/float(pixel_resolution[0])
-            new_resolution = old_resolution*resizeTo
-            rational_new_resolution = Fraction(new_resolution).limit_denominator()
-            print(pixel_resolution)
-            pixel_resolution = (rational_new_resolution.denominator,
-                                rational_new_resolution.numerator)
-            print(pixel_resolution)
             print("Resizing outArray...")
+            old_resolution = pixel_resolution[0]/float(pixel_resolution[1])
+            print("Original pixel resolution was: %s / %s = %s px/resolution unit" % (pixel_resolution[0], pixel_resolution[1], old_resolution))
+            new_resolution = old_resolution*float(resizeTo)
+            rational_new_resolution = Fraction(new_resolution).limit_denominator()
+
+            pixel_resolution = (rational_new_resolution.numerator,
+                                rational_new_resolution.denominator)
+
+            print("New pixel resolution is: %s / %s = %s px/resolution unit" % (pixel_resolution[0], pixel_resolution[1], new_resolution))
+            print("Resolution unit is : %s" % (wellDict[well]['resoloution_unit']))
+
             t=time.time()
             outArray = bin_ndarray(outArray, ((nTimepoints, nSlices, nChans,
                                                outHeight*resizeTo,
                                                outWidth*resizeTo))).astype("uint16")
-            print("Done!", round(time.time()-t), " s")
+            print("Done in %.2f s!" % (round(time.time()-t)))
+
         bigTiffFlag = outArray.size * outArray.dtype.itemsize > 2000 * 2 ** 20
         print("bigTillFlag set to:", bigTiffFlag, "Saving output...(may take a while)")
 
         metadata = {"zStack" : bool(1-nSlices),
-                    "unit":"um",
+                    "unit":"cm",
                     "tunit": time_unit,
                     "finterval" : frame_interval
                     }
