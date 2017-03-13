@@ -222,14 +222,17 @@ def stitchWellsOnDisk(wellDict, inputDir, outputDir, resizeTo=None):
 		outHeight = ypix*nrows
 
 		if resizeTo != None:
-			old_resolution = pixel_resolution[1]/float(pixel_resolution[0])
+
+            print("Resizing outArray...")
+			old_resolution = pixel_resolution[0]/float(pixel_resolution[1])
 			print("old resolution; {}, rational: {}".format(old_resolution,
 			                                                pixel_resolution))
 			new_resolution = old_resolution*resizeTo
 			rational_new_resolution = Fraction(new_resolution).limit_denominator()
 
-			pixel_resolution = (rational_new_resolution.denominator,
-								rational_new_resolution.numerator)
+			pixel_resolution = (rational_new_resolution.numerator,
+								rational_new_resolution.denominator)
+
 			print("new resolution; {}, rational: {}".format(new_resolution,
 			                                                pixel_resolution))
 			outArray = np.empty(
