@@ -50,3 +50,7 @@ Temporary Items
 
 *.pyc
 *.pyc
+
+*.xml
+
+*.iml
