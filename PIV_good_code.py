@@ -231,6 +231,17 @@ def get_v0_plus_r_coordinates_cardinal(array_shape, v0_cord, r):
 
 
 def get_all_angles(u_array, v_array, v0_coord, resultsDict, r_max, r_step=1, r_min=1):
+    """
+
+    :param u_array:
+    :param v_array:
+    :param v0_coord:
+    :param resultsDict:
+    :param r_max:
+    :param r_step:
+    :param r_min:
+    :return: updated resultsDict with key:radius val:list of means for cos(theta) v_0-v_r
+    """
     assert u_array.shape == v_array.shape, "u and v component arrays have to have identical shapes"
 
     v0_u = u_array[v0_coord]
@@ -249,17 +260,52 @@ def get_all_angles(u_array, v_array, v0_coord, resultsDict, r_max, r_step=1, r_m
         coords = get_v0_plus_r_coordinates_cardinal(u_array.shape, v0_coord, r)
 
         if len(coords) == 0:
-            break
+            break  # stop when we run out of valid coordinates
         for c in coords:
             if magnitudes[c] == 0:
                 pass
             else:
                 c_vv = dot_products[c] / magnitudes[c]
+                resultsDict[r].append(c_vv)
 
-                if np.isnan(c_vv):
-                    pass
-
-                else:
-                    resultsDict[r].append(c_vv)
+    for k, v in resultsDict.items():
+        if len(resultsDict[k]) == 0:
+            resultsDict.pop(r, None)  # No need to save empty data lists, it breaks the statistics
 
     return resultsDict
+
+
+tmp = openPIV_u2.copy()
+
+results = {}
+
+for t in range(tmp.shape[0]):
+    for d in range(0, min(tmp.shape[1], tmp.shape[2])):
+        results = get_all_angles(openPIV_u2[t], openPIV_v2[t], (d, d), results, 300, 1)
+
+x = []
+y = []
+
+for k, v in results.items():
+
+    if (len(v) == 0):
+        print("Empty value at r=%i" % (k))
+        break
+    mean = np.nanmean(v)
+    mean_deg = math.acos(mean) * (180 / math.pi)
+    sd = np.nanstd(v)
+    sd_deg = math.acos(sd) * (180 / math.pi)
+    SEM = sd_deg / math.sqrt(len(v))
+    # print(k, mean_deg, len(v), mean_deg+3*SEM)
+    if (mean_deg + 3 * SEM > 90):
+        print("3-sigma reached at r=%i, last significant distance was %.2f um" % (k, x[-1]))
+        break
+    x.append(k * 41.8624)
+    y.append(mean_deg)
+
+plt.plot(x, y, 'r', label="aCos(v(o)v(r))")
+plt.legend()
+plt.title("Average angle between velocity vectors")
+plt.xlabel("Distance in um")
+plt.ylabel("Mean angle (degrees)")
+plt.show()
