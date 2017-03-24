@@ -1,4 +1,4 @@
-rom __future__ import print_function
+from __future__ import print_function
 import openpiv.process
 import openpiv.filters
 import openpiv.scaling
@@ -15,12 +15,7 @@ import tiffile as tiffile
 import cv2
 import time
 
-#PIV parameters
-piv_params = dict(window_size = 32,
-                overlap = 16,
-                dt = 1,
-                search_area_size = 36,
-                sig2noise_method = "peak2peak")
+
 
 def openPIV_array_processor_median(arr, stopFrame, startFrame=0, frameSamplingInterval=1, **piv_params):
     assert (startFrame < stopFrame) and (stopFrame <= arr.shape[0])
@@ -218,26 +213,131 @@ def get_all_angles(u_array, v_array, v0_coord, resultsDict, r_max, r_step=1, r_m
 
     return resultsDict
 
-t0=time.time()
-metaResults = {}
-for interval in range(0, 11, 10):
-    print("interval: %s, time passed %.2f"% (interval, time.time()-t0))
-    results={}
-    pnas_u, pnas_v, pnas_x, pnas_y = openPIV_array_processor(pnas_160124, stopFrame=interval+10, startFrame=interval, **piv_params)
-    print(pnas_u.shape)
-    for t in range(pnas_u.shape[0]):
-        for d in range(0, min(pnas_u.shape[1], pnas_u.shape[2])):
-            results = get_all_angles(pnas_u[t], pnas_v[t], (d,d), results, 300, 1)
-    metaResults[interval] = dict(results)
 
-t0=time.time()
-metaResults = {}
-for interval in range(0, 11, 10):
-    print("interval: %s, time passed %.2f"% (interval, time.time()-t0))
-    results={}
-    pnas_u, pnas_v, pnas_x, pnas_y = openPIV_array_processor(pnas_160124, stopFrame=interval+10, startFrame=interval, **piv_params)
-    print(pnas_u.shape)
-    for t in range(pnas_u.shape[0]):
-        for d in range(0, min(pnas_u.shape[1], pnas_u.shape[2])):
-            results = get_all_angles(pnas_u[t], pnas_v[t], (d,d), results, 300, 1)
-    metaResults[interval] = dict(results)
+def do_it_all(indir, fname, outdir):
+    # PIV parameters
+    piv_params = dict(window_size=32,
+                      overlap=16,
+                      dt=1,
+                      search_area_size=36,
+                      sig2noise_method="peak2peak")
+
+    px_resolution = 5.466 # um/px
+    time_resolution = 5 # frames/h
+    r_max = 300 #piv-pixels = overlap*px_resolution um
+    piv_scaler =  px_resolution*time_resolution # piv data in px/frame
+    n_sigma = 3
+    print("Working on: %s" % (fname))
+    t0 = time.time()
+    with tiffile.TiffFile(indir+fname) as tif:
+        arr = tif.asarray()
+
+    arr = arr.astype(np.int32)
+
+    t1 = time.time() - t0
+    print("It took %.2f s to load %s, and has shape: %s" % (t1, fname, arr.shape))
+    t2 = time.time() - t1
+    arr_u, arr_v, arr_x, arr_y = openPIV_array_processor(arr, stopFrame=arr.shape[0], **piv_params)
+    print("It took %.2f s to process PIV, and has shape: %s" % (t2, arr_u.shape))
+    t3 = time.time()-t2
+    inst_order_params, align_idxs, speeds, timepoints = [], [], [], []
+
+    for frame in range(arr_u.shape[0]):
+        iop = instantaneous_order_parameter(arr_u[frame], arr_v[frame])
+        inst_order_params.append(iop)
+        ai = alignment_index(arr_u[frame], arr_v[frame], alsoReturnMagnitudes=True)
+        aidx = np.nanmean(ai[0])
+        align_idxs.append(aidx)
+        speed = np.nanmean(ai[1])*piv_scaler
+        speeds.append(speed)
+        timepoint = frame*(1/float(time_resolution))
+        timepoints.append(timepoint)
+        print(frame, timepoint, aidx, iop, speed)
+
+
+    plt.plot(timepoints, speeds, 'r', label=fname[:7])
+    plt.xlabel("Time (h)")
+    plt.ylabel("Mean speed (um/h)")
+    plt.title("Velocity vector magnitudes (speed)")
+    plt.legend()
+    plt.savefig(outdir+fname[:-4]+"_speed.pdf", bbox_inches='tight', pad_inches=0)
+    #plt.savefig(outdir + fname + "_speed.png", bbox_inches='tight', pad_inches=0)
+    plt.close()
+
+    plt.plot(timepoints, align_idxs, 'b', label=fname[:7])
+    plt.xlabel("Time (h)")
+    plt.ylabel("Align index")
+    plt.title("Alignment index")
+    plt.legend()
+    plt.savefig(outdir+fname[:-4] + "_alignidx.pdf", bbox_inches='tight', pad_inches=0)
+    #plt.savefig(outdir + fname + "_alignidx.png", bbox_inches='tight', pad_inches=0)
+    plt.close()
+
+    plt.plot(timepoints, inst_order_params, 'g', label=fname[:7])
+    plt.xlabel("Time (h)")
+    plt.ylabel("$\psi$")
+    plt.title("Instantaneous order parameter ($\psi$)")
+    plt.legend()
+    plt.savefig(outdir+fname[:-4]+ "_iop.pdf", bbox_inches='tight', pad_inches=0)
+    #plt.savefig(outdir + fname + "_iop.png", bbox_inches='tight', pad_inches=0)
+    plt.close()
+
+    print("It took %.2f s to do Alignemt indexes, order params and speeds" % (t3))
+    metaResults = {}
+
+    for interval in range(0, arr_u.shape[0], 10):
+        results={}
+        tmp_u = arr_u[interval:interval+10]
+        tmp_v = arr_v[interval:interval + 10]
+        for t in range(tmp_u.shape[0]):
+            for d in range(0, min(tmp_u.shape[1], tmp_u.shape[2])):
+                results = get_all_angles(tmp_u[t], tmp_v[t], (d,d), results, r_max, 1)
+        metaResults[interval] = dict(results)
+
+
+    px_scale = px_resolution * piv_params["overlap"]
+    lastrs = []
+    for interv in sorted(metaResults.keys()):
+        x = []
+        y = []
+        results = metaResults[interv]
+
+        for k, v in results.items():
+
+            if (len(v) == 0):
+                print("Empty value at interal %i and r=%i" % (interv, k))
+                break
+            mean = np.nanmean(v)
+            try:
+                mean_deg = math.acos(mean) * (180 / math.pi)
+
+            except:
+                print("Domain error in nterval: %i" % (k))
+                break
+            sd = np.nanstd(v)
+            sd_deg = math.acos(sd) * (180 / math.pi)
+            SEM = sd_deg / math.sqrt(len(v))
+            # print(k, mean_deg, len(v), mean_deg+3*SEM)
+            if (mean_deg + n_sigma * SEM > 90):
+                lastrs.append((k, x[-1]))
+                print("%i-sigma reached at r=%i on interval %i, last significant distance was %.2f um" % (
+                n_sigma, k, interv, x[-1]))
+                break
+            x.append(k * px_scale)
+            y.append(mean_deg)
+
+        lab = "interval: " + str(((interv) / 5)) + " - " + str((interv + 10) / 5) + " h, Lcorr = "
+        plt.plot(x, y, label=lab)
+
+    plt.legend()
+    plt.title("Average angle between velocity vectors " + fname[:7])
+    plt.xlabel("Distance in um")
+    plt.ylabel("Mean angle (degrees)")
+    plt.savefig(outdir+fname+".pdf")
+    print("All done in %.2f s" % (time.time()-t0))
+
+indir = "/Users/jens_e/Python_laboratory/Vector_visualizer/test/"
+outdir = "/Users/jens_e/Python_laboratory/Vector_visualizer/test/out/"
+testfile = "sub_gliding_median_3_frames.tif"
+
+do_it_all(indir,testfile, outdir)

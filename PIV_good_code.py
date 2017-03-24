@@ -275,37 +275,3 @@ def get_all_angles(u_array, v_array, v0_coord, resultsDict, r_max, r_step=1, r_m
     return resultsDict
 
 
-tmp = openPIV_u2.copy()
-
-results = {}
-
-for t in range(tmp.shape[0]):
-    for d in range(0, min(tmp.shape[1], tmp.shape[2])):
-        results = get_all_angles(openPIV_u2[t], openPIV_v2[t], (d, d), results, 300, 1)
-
-x = []
-y = []
-
-for k, v in results.items():
-
-    if (len(v) == 0):
-        print("Empty value at r=%i" % (k))
-        break
-    mean = np.nanmean(v)
-    mean_deg = math.acos(mean) * (180 / math.pi)
-    sd = np.nanstd(v)
-    sd_deg = math.acos(sd) * (180 / math.pi)
-    SEM = sd_deg / math.sqrt(len(v))
-    # print(k, mean_deg, len(v), mean_deg+3*SEM)
-    if (mean_deg + 3 * SEM > 90):
-        print("3-sigma reached at r=%i, last significant distance was %.2f um" % (k, x[-1]))
-        break
-    x.append(k * 41.8624)
-    y.append(mean_deg)
-
-plt.plot(x, y, 'r', label="aCos(v(o)v(r))")
-plt.legend()
-plt.title("Average angle between velocity vectors")
-plt.xlabel("Distance in um")
-plt.ylabel("Mean angle (degrees)")
-plt.show()
