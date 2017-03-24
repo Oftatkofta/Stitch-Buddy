@@ -65,7 +65,7 @@ def openPIV_array_processor(arr, stopFrame, startFrame=0, frameSamplingInterval=
 
         if frame >= (stopFrame - 1):
             break
-
+        print("PIV analysis on frame %i." %(frame))
         frame_a = arr[frame]
         frame_b = arr[frame + 1]
 
@@ -209,12 +209,25 @@ def get_all_angles(u_array, v_array, v0_coord, resultsDict, r_max, r_step=1, r_m
 
     for k, v in resultsDict.items():
         if len(resultsDict[k]) == 0:
-            resultsDict.pop(r, None)  # No need to save empty data lists, it breaks the statistics
+            resultsDict.pop(k, None)  # No need to save empty data lists, it breaks the statistics
 
     return resultsDict
 
 
-def do_it_all(indir, fname, outdir):
+def do_it_all(indir, fname, outdir, maxFrameToAnalyze = 201, intervalSize = 10, saveplots = True ):
+    """
+
+    Args:
+        indir:
+        fname:
+        outdir:
+        maxFrameToAnalyze: run analysis for this long
+        intervalSize: No of frames to integrate for the correlation length analysis
+        saveplots:
+
+    Returns:
+
+    """
     # PIV parameters
     piv_params = dict(window_size=32,
                       overlap=16,
@@ -227,19 +240,23 @@ def do_it_all(indir, fname, outdir):
     r_max = 300 #piv-pixels = overlap*px_resolution um
     piv_scaler =  px_resolution*time_resolution # piv data in px/frame
     n_sigma = 3
+    px_scale = px_resolution * piv_params["overlap"]
     print("Working on: %s" % (fname))
     t0 = time.time()
+
     with tiffile.TiffFile(indir+fname) as tif:
         arr = tif.asarray()
 
     arr = arr.astype(np.int32)
-
+    arr = arr[0:maxFrameToAnalyze]
     t1 = time.time() - t0
     print("It took %.2f s to load %s, and has shape: %s" % (t1, fname, arr.shape))
-    t2 = time.time() - t1
+    t2 = time.time() - (t0+t1)
     arr_u, arr_v, arr_x, arr_y = openPIV_array_processor(arr, stopFrame=arr.shape[0], **piv_params)
+
     print("It took %.2f s to process PIV, and has shape: %s" % (t2, arr_u.shape))
-    t3 = time.time()-t2
+    t3 = time.time()-t0+t1+t2
+
     inst_order_params, align_idxs, speeds, timepoints = [], [], [], []
 
     for frame in range(arr_u.shape[0]):
@@ -254,49 +271,49 @@ def do_it_all(indir, fname, outdir):
         timepoints.append(timepoint)
         print(frame, timepoint, aidx, iop, speed)
 
+    if saveplots:
+        plt.plot(timepoints, speeds, 'r', label=fname[:6])
+        plt.xlabel("Time (h)")
+        plt.ylabel("Mean speed (um/h)")
+        plt.title("Velocity vector magnitudes (speed)")
+        plt.legend()
+        savename = outdir+fname[:-4]+"_speeds.pdf"
+        print(savename)
+        plt.savefig(savename)
+        #plt.savefig(outdir + fname + "_speed.png", bbox_inches='tight', pad_inches=0)
+        plt.close()
 
-    plt.plot(timepoints, speeds, 'r', label=fname[:7])
-    plt.xlabel("Time (h)")
-    plt.ylabel("Mean speed (um/h)")
-    plt.title("Velocity vector magnitudes (speed)")
-    plt.legend()
-    plt.savefig(outdir+fname[:-4]+"_speed.pdf", bbox_inches='tight', pad_inches=0)
-    #plt.savefig(outdir + fname + "_speed.png", bbox_inches='tight', pad_inches=0)
-    plt.close()
+        plt.plot(timepoints, align_idxs, 'b', label=fname[:6])
+        plt.xlabel("Time (h)")
+        plt.ylabel("Align index")
+        plt.title("Alignment index")
+        plt.legend()
+        plt.savefig(outdir+fname[:-4]+"_alignidx.pdf", bbox_inches='tight', pad_inches=0)
+        #plt.savefig(outdir + fname + "_alignidx.png", bbox_inches='tight', pad_inches=0)
+        plt.close()
 
-    plt.plot(timepoints, align_idxs, 'b', label=fname[:7])
-    plt.xlabel("Time (h)")
-    plt.ylabel("Align index")
-    plt.title("Alignment index")
-    plt.legend()
-    plt.savefig(outdir+fname[:-4] + "_alignidx.pdf", bbox_inches='tight', pad_inches=0)
-    #plt.savefig(outdir + fname + "_alignidx.png", bbox_inches='tight', pad_inches=0)
-    plt.close()
-
-    plt.plot(timepoints, inst_order_params, 'g', label=fname[:7])
-    plt.xlabel("Time (h)")
-    plt.ylabel("$\psi$")
-    plt.title("Instantaneous order parameter ($\psi$)")
-    plt.legend()
-    plt.savefig(outdir+fname[:-4]+ "_iop.pdf", bbox_inches='tight', pad_inches=0)
-    #plt.savefig(outdir + fname + "_iop.png", bbox_inches='tight', pad_inches=0)
-    plt.close()
+        plt.plot(timepoints, inst_order_params, 'g', label=fname[:6])
+        plt.xlabel("Time (h)")
+        plt.ylabel("$\psi$")
+        plt.title("Instantaneous order parameter ($\psi$)")
+        plt.legend()
+        plt.savefig(outdir+fname[:-4]+ "_iop.pdf", bbox_inches='tight', pad_inches=0)
+        #plt.savefig(outdir + fname + "_iop.png", bbox_inches='tight', pad_inches=0)
+        plt.close()
 
     print("It took %.2f s to do Alignemt indexes, order params and speeds" % (t3))
     metaResults = {}
 
-    for interval in range(0, arr_u.shape[0], 10):
+    for interval in range(0, arr_u.shape[0], intervalSize):
         results={}
         tmp_u = arr_u[interval:interval+10]
         tmp_v = arr_v[interval:interval + 10]
         for t in range(tmp_u.shape[0]):
-            for d in range(0, min(tmp_u.shape[1], tmp_u.shape[2])):
+            for d in range(0, min(tmp_u.shape[1], tmp_u.shape[2])): #follow the diagonal
                 results = get_all_angles(tmp_u[t], tmp_v[t], (d,d), results, r_max, 1)
         metaResults[interval] = dict(results)
 
-
-    px_scale = px_resolution * piv_params["overlap"]
-    lastrs = []
+    lastrs = [["n_sigma", "radius_px", "max_sign_r_um"]]
     for interv in sorted(metaResults.keys()):
         x = []
         y = []
@@ -318,26 +335,40 @@ def do_it_all(indir, fname, outdir):
             sd_deg = math.acos(sd) * (180 / math.pi)
             SEM = sd_deg / math.sqrt(len(v))
             # print(k, mean_deg, len(v), mean_deg+3*SEM)
-            if (mean_deg + n_sigma * SEM > 90):
-                lastrs.append((k, x[-1]))
-                print("%i-sigma reached at r=%i on interval %i, last significant distance was %.2f um" % (
-                n_sigma, k, interv, x[-1]))
-                break
             x.append(k * px_scale)
             y.append(mean_deg)
+            if (mean_deg + n_sigma * SEM > 90):
+                lastrs.append([n_sigma, k, x[-1]])
+                print("%i-sigma reached at r=%i on interval %i, last significant distance was %.2f um" % (
+                n_sigma, k, interv, x[-1]))
 
-        lab = "interval: " + str(((interv) / 5)) + " - " + str((interv + 10) / 5) + " h, Lcorr = "
+        lab = "interval: " + str(((interv) / 5.0)) + " - " + str((interv + intervalSize) / 5.0) + " h "
         plt.plot(x, y, label=lab)
 
-    plt.legend()
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand")
     plt.title("Average angle between velocity vectors " + fname[:7])
     plt.xlabel("Distance in um")
     plt.ylabel("Mean angle (degrees)")
-    plt.savefig(outdir+fname+".pdf")
+    plt.savefig(outdir+fname[:-4]+"_cvv.pdf", bbox_inches='tight')
+    plt.close()
     print("All done in %.2f s" % (time.time()-t0))
+    return lastrs
 
-indir = "/Users/jens_e/Python_laboratory/Vector_visualizer/test/"
-outdir = "/Users/jens_e/Python_laboratory/Vector_visualizer/test/out/"
-testfile = "sub_gliding_median_3_frames.tif"
+#indir = "/Users/jens_e/Python_laboratory/Vector_visualizer/test/"
+#outdir = "/Users/jens_e/Python_laboratory/Vector_visualizer/test/out/"
+#testfile = "sub_gliding_median_3_frames.tif"
 
-do_it_all(indir,testfile, outdir)
+outdir = r"Q:\\PNAS revision data\\Analysis\\"
+indir= r"Q:\\PNAS revision data\\"
+files = ["160124_H2B_serum_3ml_T0_1h_Median_3_frames_RESCALE.tif",
+         "160126_H2B_T0_1h_3ml_serum_Median_3_frames_RESCALE.tif",
+         "160205_H2B_3ml_T0_1h_RESCALE_Median_3_frames.tif"]
+
+#l=do_it_all(indir, "test.tif", outdir, maxFrameToAnalyze = 201, intervalSize = 2, saveplots = True)
+#print(l)
+for f in files:
+    thefile = open(f[:7]+'rvals.txt', 'w')
+    lcorrs = do_it_all(indir, f, outdir, maxFrameToAnalyze = 201, intervalSize = 10, saveplots = True)
+    for item in lcorrs:
+        thefile.write("%s\n" % item)
+        thefile.close()
