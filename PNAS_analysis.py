@@ -9,7 +9,8 @@ from matplotlib import animation, rc
 from IPython.display import HTML
 import numpy as np
 import math
-from PIL import Image
+from stitch_buddy import *
+from PIV_good_code import *
 import tiffile as tiffile
 import cv2
 import time
@@ -51,6 +52,37 @@ def openPIV_array_processor_median(arr, stopFrame, startFrame=0, frameSamplingIn
                                                                                          sig2noise_method=piv_params[
                                                                                              "sig2noise_method"])
     return out_u, out_v, x, y
+
+
+def openPIV_array_processor(arr, stopFrame, startFrame=0, frameSamplingInterval=1, **piv_params):
+    assert (startFrame < stopFrame) and (stopFrame <= arr.shape[0])
+
+    n_frames = (stopFrame - startFrame - 1) // frameSamplingInterval
+
+    x, y = openpiv.process.get_coordinates(image_size=arr[0].shape,
+                                           window_size=piv_params["window_size"],
+                                           overlap=piv_params["overlap"])
+
+    out_u = np.zeros((n_frames, x.shape[0], x.shape[1]))
+    out_v = np.zeros_like(out_u)
+
+    for frame, i in zip(range(startFrame, stopFrame, frameSamplingInterval), range(n_frames)):
+
+        if frame >= (stopFrame - 1):
+            break
+
+        frame_a = arr[frame]
+        frame_b = arr[frame + 1]
+
+        out_u[i], out_v[i] = openpiv.process.extended_search_area_piv(frame_a, frame_b,
+                                                                      window_size=piv_params["window_size"],
+                                                                      overlap=piv_params["overlap"],
+                                                                      dt=piv_params["dt"],
+                                                                      search_area_size=piv_params["search_area_size"],
+                                                                      sig2noise_method=None)
+
+    return out_u, out_v, x, y
+
 
 def alignment_index(u, v, alsoReturnMagnitudes=False):
 
@@ -186,38 +218,26 @@ def get_all_angles(u_array, v_array, v0_coord, resultsDict, r_max, r_step=1, r_m
 
     return resultsDict
 
+t0=time.time()
+metaResults = {}
+for interval in range(0, 11, 10):
+    print("interval: %s, time passed %.2f"% (interval, time.time()-t0))
+    results={}
+    pnas_u, pnas_v, pnas_x, pnas_y = openPIV_array_processor(pnas_160124, stopFrame=interval+10, startFrame=interval, **piv_params)
+    print(pnas_u.shape)
+    for t in range(pnas_u.shape[0]):
+        for d in range(0, min(pnas_u.shape[1], pnas_u.shape[2])):
+            results = get_all_angles(pnas_u[t], pnas_v[t], (d,d), results, 300, 1)
+    metaResults[interval] = dict(results)
 
-tmp = openPIV_u2.copy()
-
-results = {}
-
-for t in range(tmp.shape[0]):
-    for d in range(0, min(tmp.shape[1], tmp.shape[2])):
-        results = get_all_angles(openPIV_u2[t], openPIV_v2[t], (d, d), results, 300, 1)
-
-x = []
-y = []
-
-for k, v in results.items():
-
-    if (len(v) == 0):
-        print("Empty value at r=%i" % (k))
-        break
-    mean = np.nanmean(v)
-    mean_deg = math.acos(mean) * (180 / math.pi)
-    sd = np.nanstd(v)
-    sd_deg = math.acos(sd) * (180 / math.pi)
-    SEM = sd_deg / math.sqrt(len(v))
-    # print(k, mean_deg, len(v), mean_deg+3*SEM)
-    if (mean_deg + 3 * SEM > 90):
-        print("3-sigma reached at r=%i, last significant distance was %.2f um" % (k, x[-1]))
-        break
-    x.append(k * 41.8624)
-    y.append(mean_deg)
-
-plt.plot(x, y, 'r', label="aCos(v(o)v(r))")
-plt.legend()
-plt.title("Average angle between velocity vectors")
-plt.xlabel("Distance in um")
-plt.ylabel("Mean angle (degrees)")
-plt.show()
+t0=time.time()
+metaResults = {}
+for interval in range(0, 11, 10):
+    print("interval: %s, time passed %.2f"% (interval, time.time()-t0))
+    results={}
+    pnas_u, pnas_v, pnas_x, pnas_y = openPIV_array_processor(pnas_160124, stopFrame=interval+10, startFrame=interval, **piv_params)
+    print(pnas_u.shape)
+    for t in range(pnas_u.shape[0]):
+        for d in range(0, min(pnas_u.shape[1], pnas_u.shape[2])):
+            results = get_all_angles(pnas_u[t], pnas_v[t], (d,d), results, 300, 1)
+    metaResults[interval] = dict(results)
