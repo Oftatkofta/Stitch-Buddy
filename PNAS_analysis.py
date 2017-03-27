@@ -18,14 +18,39 @@ import time
 
 
 def openPIV_array_processor_median(arr, stopFrame, startFrame=0, frameSamplingInterval=1, **piv_params):
+    """
+    The function first runs a gliding 3-frame temporal median on every pixel to smooth out noise and to remove fast
+    moving debree that is not migrating cells.
+    Then it does PIV analysis between every n frames in the smoothed time lapse.
+    It returns the u and v components of the velocity vectors as two (smaller) numpy arrays.
+    Two additional arrays with the x and y coordinates corresponding to the centers of the search windows in the
+    original input array are also returned.
+    This function should not be run on data that has already been smoothed.
+
+    :param arr:
+    (3d numpy array) with a shape of (t, y, x) of type np.int32
+    :param stopFrame:
+    (int) Last frame to analyze
+    :param startFrame:
+    (int) First frame to analyze
+    :param frameSamplingInterval:
+    (int) do PIV between every n frames
+    :param piv_params:
+    (dict) parameters for the openPIV function extended_search_area_piv
+    :return:
+    u_component_array, v_component_array, original_x_coord_array, original_y_coord_array
+
+    """
     assert (startFrame < stopFrame) and (stopFrame <= arr.shape[0])
 
     n_frames = 1 + (stopFrame - startFrame - 4) // frameSamplingInterval
 
+    #original x/y coordinates
     x, y = openpiv.process.get_coordinates(image_size=arr[0].shape,
                                            window_size=piv_params["window_size"],
                                            overlap=piv_params["overlap"])
 
+    #Zero-filled output arrays are created beforehand for maximal performance
     out_u = np.zeros((n_frames, x.shape[0], x.shape[1]))
     out_v = np.zeros_like(out_u)
 
@@ -34,18 +59,19 @@ def openPIV_array_processor_median(arr, stopFrame, startFrame=0, frameSamplingIn
         if frame >= (stopFrame - 4):
             break
 
-        frame_a = np.median(arr[frame:frame + 3], axis=0).astype(np.int32)
-        frame_b = np.median(arr[frame + 1:frame + 4], axis=0).astype(np.int32)
+        frame_a = np.median(arr[frame:frame + 3], axis=0).astype(np.int32) #median of frames n1,n2,n3
+        frame_b = np.median(arr[frame + 1:frame + 4], axis=0).astype(np.int32) #median of frames n2,n3,n4
 
-        out_u[frame], out_v[frame], sig2noise = openpiv.process.extended_search_area_piv(frame_a, frame_b,
+        #Existing arrays are filled with the time
+        out_u[frame], out_v[frame] = openpiv.process.extended_search_area_piv(frame_a, frame_b,
                                                                                          window_size=piv_params[
                                                                                              "window_size"],
                                                                                          overlap=piv_params["overlap"],
                                                                                          dt=piv_params["dt"],
                                                                                          search_area_size=piv_params[
                                                                                              "search_area_size"],
-                                                                                         sig2noise_method=piv_params[
-                                                                                             "sig2noise_method"])
+                                                                                         sig2noise_method=None
+                                                                                             )
     return out_u, out_v, x, y
 
 
