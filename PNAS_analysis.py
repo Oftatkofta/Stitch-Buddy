@@ -4,15 +4,11 @@ import openpiv.filters
 import openpiv.scaling
 import openpiv.validation
 from matplotlib import pyplot as plt
-from matplotlib.colors import LogNorm
-from matplotlib import animation, rc
-from IPython.display import HTML
 import numpy as np
 import math
 from stitch_buddy import *
 from PIV_good_code import *
 import tiffile as tiffile
-import cv2
 import time
 
 
@@ -28,17 +24,17 @@ def openPIV_array_processor_median(arr, stopFrame, startFrame=0, frameSamplingIn
     This function should not be run on data that has already been smoothed.
 
     :param arr:
-    (3d numpy array) with a shape of (t, y, x) of type np.int32
+        (3d numpy array) with a shape of (t, y, x) of type np.int32
     :param stopFrame:
-    (int) Last frame to analyze
+        (int) Last frame to analyze
     :param startFrame:
-    (int) First frame to analyze
+        (int) First frame to analyze
     :param frameSamplingInterval:
-    (int) do PIV between every n frames
+        (int) do PIV between every n frames
     :param piv_params:
-    (dict) parameters for the openPIV function extended_search_area_piv
+        (dict) parameters for the openPIV function extended_search_area_piv
     :return:
-    u_component_array, v_component_array, original_x_coord_array, original_y_coord_array
+        u_component_array, v_component_array, original_x_coord_array, original_y_coord_array
 
     """
     assert (startFrame < stopFrame) and (stopFrame <= arr.shape[0])
@@ -62,7 +58,7 @@ def openPIV_array_processor_median(arr, stopFrame, startFrame=0, frameSamplingIn
         frame_a = np.median(arr[frame:frame + 3], axis=0).astype(np.int32) #median of frames n1,n2,n3
         frame_b = np.median(arr[frame + 1:frame + 4], axis=0).astype(np.int32) #median of frames n2,n3,n4
 
-        #Existing arrays are filled with the time
+        #the output arrays are modified in-place with the PIV data
         out_u[frame], out_v[frame] = openpiv.process.extended_search_area_piv(frame_a, frame_b,
                                                                                          window_size=piv_params[
                                                                                              "window_size"],
@@ -76,17 +72,42 @@ def openPIV_array_processor_median(arr, stopFrame, startFrame=0, frameSamplingIn
 
 
 def openPIV_array_processor(arr, stopFrame, startFrame=0, frameSamplingInterval=1, **piv_params):
+    """
+    The function does PIV analysis between every n frames in input array.
+    It returns the u and v components of the velocity vectors as two (smaller) numpy arrays.
+    Two additional arrays with the x and y coordinates corresponding to the centers of the search windows in the
+    original input array are also returned.
+
+    This function should be run on data that has already been smoothed, or when smoothing is undesirable.
+
+    :param arr:
+        (3D numpy array) with a shape of (t, y, x) of type np.int32
+    :param stopFrame:
+        (int) Last frame to analyze
+    :param startFrame:
+        (int) First frame to analyze
+    :param frameSamplingInterval:
+        (int) do PIV between every n frames
+    :param piv_params:
+        (dict) parameters for the openPIV function extended_search_area_piv
+    :return:
+        u_component_array, v_component_array, original_x_coord_array, original_y_coord_array
+
+    """
     assert (startFrame < stopFrame) and (stopFrame <= arr.shape[0])
 
     n_frames = (stopFrame - startFrame - 1) // frameSamplingInterval
 
+    # original x/y coordinates
     x, y = openpiv.process.get_coordinates(image_size=arr[0].shape,
                                            window_size=piv_params["window_size"],
                                            overlap=piv_params["overlap"])
 
+    # Zero-filled output arrays are created beforehand for maximal performance
     out_u = np.zeros((n_frames, x.shape[0], x.shape[1]))
     out_v = np.zeros_like(out_u)
 
+    #pairs the original frame number with the indexing in the output, since frame n in the input might not be n in output
     for frame, i in zip(range(startFrame, stopFrame, frameSamplingInterval), range(n_frames)):
 
         if frame >= (stopFrame - 1):
@@ -108,18 +129,31 @@ def openPIV_array_processor(arr, stopFrame, startFrame=0, frameSamplingInterval=
 def alignment_index(u, v, alsoReturnMagnitudes=False):
 
     """
-    Returns an array of the same shape as u and v with the aligmnent index, as in Malinverno et. al 2017
-    if returnMagnitudes is set to True, then an additional array with the vector magnitudes is also returned.
-    """
+    Returns an array of the same shape as u and v with the alignment index (ai), defined as in Malinverno et. al 2017.
+    For every frame the ai is the average of the dot products of the mean velocity vector with each individual
+    vector, all divided by the product of their magnitudes.
 
+    If alsoReturnMagnitudes is set to True, then an additional array with the vector magnitudes, i.e, speeds in
+    pixels/frame is also returned.
+
+    :param u:
+        2D numpy array with u component of velocity vectors
+    :param v:
+        2D numpy array with v component of velocity vectors
+    :param alsoReturnMagnitudes:
+        (bool) Should the function also return the vector magnitudes
+    :return:
+        nunpy array with size=input.size where every entry is the alignment index in that pixel
+
+    """
     assert (u.shape == v.shape) and (len(u.shape) == 2)  # Only single frames are processed
 
     vector_0 = np.array((np.mean(u), np.mean(v)))
     v0_magnitude = np.linalg.norm(vector_0)
 
-    vector_magnitudes = np.sqrt((np.square(u) + np.square(v)))
+    vector_magnitudes = np.sqrt((np.square(u) + np.square(v))) #a^2 + b^2 = c^2
     magnitude_products = vector_magnitudes * v0_magnitude
-    dot_products = u * vector_0[0] + v * vector_0[1]
+    dot_products = u * vector_0[0] + v * vector_0[1] #Scalar multiplication followed by array addition
 
     ai = np.divide(dot_products, magnitude_products)
 
@@ -131,40 +165,95 @@ def alignment_index(u, v, alsoReturnMagnitudes=False):
 
 
 def msv(u, v): #Mean Square Velocity
+    """
+     Calculates the mean square velocity of one frame from PIV data
+
+    :param u:
+        2D numpy array with the u component of velocity vectors
+    :param v:
+        2D numpy array with the v component of velocity vectors
+    :return:
+        (float) the mean square velocity of the velocity vectors in the frame
+    """
+
     msv = np.mean(np.square(u)+np.square(v))
+
     return msv
 
 def rms(u, v): #Root Mean Square Velocity
-    rms = np.sqrt(np.mean(np.square(u)+np.square(v)))
+    """
+    Calculates the root mean square velocity of one frame from PIV data, i.e. speed or vector magnitudes in the unit
+    pixels/frame. This is equivalent to taking the square root of the mean square velocity.
+
+    :param u:
+        2D numpy array with the u component of velocity vectors
+    :param v:
+        2D numpy array with the v component of velocity vectors
+    :return:
+        (float) the root mean square velocity of the velocity vectors in the frame
+    """
+    rms = np.sqrt(np.mean(np.square(u)+np.square(v))) #sqrt(u^2+v^2)
+
     return rms
 
 def smvvm(u, v):  # square_mean_vectorial_velocity_magnitude
+    """
+    Array addition of the squared average vector components, used in calculating the instantaneous order parameter
+
+    :param u:
+        2D numpy array with the u component of velocity vectors
+    :param v:
+        2D numpy array with the u component of velocity vectors
+    :return:
+        2D numpy array with the u component of velocity vectors
+
+    """
 
     return np.square(np.mean(u)) + np.square(np.mean(v))
 
 def instantaneous_order_parameter(u, v):
-    return smvvm(u, v) / msv(u, v)
+    """
+    Calculates the instantaneous order parameter (iop) in one PIV frame see  Malinverno et. al 2017 for a more detailed
+    explanation. The iop is a measure of how similar the vectors in a field are, which takes in to account both the
+    direcions and magnitudes of the vectors. iop always between 0 and 1, with iop = 1 being a perfectly uniform field
+    of identical vectors, and iop = 0 for a perfectly random field.
 
+    :param u:
+        2D numpy array with the u component of velocity vectors
+    :param v:
+        2D numpy array with the u component of velocity vectors
+    :return:
+        (float) iop of vector field
+    """
+    return smvvm(u, v) / msv(u, v) #square_mean_vectorial_velocity_magnitude/Mean Square Velocity
 
 
 def get_v0_plus_r_coordinates_cardinal(array_shape, v0_cord, r):
 
     """
-    Gets the 4 coordinates of the pixels r away from the coordinate (v0_x, v0_y) in the four cardinal directions.
-    The coordinates are returned in Matrix/numpy form (row,col), i.e. (y,x) when compared to traditional image
-    coordinate numbering.
+    Gets the 4 coordinates of the pixels that are r pxels away from the coordinate (v0_x, v0_y) along the four
+    cardinal directions. Coordinates are returned in the order: up/top, right, down/bottom, left.
 
-    :param array_shape: (tuple)
-    :param v0_cord: (tuple) of (ints), (row, col) coordinates of v0 in matrix notation.
-    :param r: (int) distance from v0 along the cardinal directions
-    :return: List of coordinates in martix notation, if no valid coordinates are found an empty list is returned.
+    The coordinates are returned in Matrix/numpy form (row,col), i.e. (y,x) when compared to traditional image
+    coordinate numbering. The input coordinate for v0 is also expected to be in this format (y_coord, x_coord).
+
+    If a coordinate falls outside of the image it is not returned.
+
+    :param array_shape:
+        (tuple) shape of 2D numpy array
+    :param v0_cord:
+        (tuple) of (ints), (row, col) coordinates of v0 in matrix notation.
+    :param r:
+        (int) distance from v0 along the cardinal directions
+    :return:
+        (list) of (tuple) coordinates in martix notation, if no valid coordinates are found an empty list is returned.
 
     """
 
-    array_width = array_shape[1]
-    array_height = array_shape[0]
-    v0_r = v0_cord[0]
-    v0_c = v0_cord[1]
+    array_width = array_shape[1] #number of columns
+    array_height = array_shape[0] #number of rows
+    v0_r = v0_cord[0] #row numer of v0
+    v0_c = v0_cord[1] #column number of v0
 
     assert r>0, "r needs to be positive and >0 !"
     assert array_width > v0_c, "v0_y needs to be less than array_width!"
@@ -197,15 +286,28 @@ def get_v0_plus_r_coordinates_cardinal(array_shape, v0_cord, r):
 
 def get_all_angles(u_array, v_array, v0_coord, resultsDict, r_max, r_step=1, r_min=1):
     """
+    Gets the vector v0 at coordinate (v0_coord) for a velocity vector field, caculates the average of the angle
+    
+
+    calculates the cosine of the angle bet
 
     :param u_array:
+        2D numpy array with the u component of velocity vectors
     :param v_array:
+        2D numpy array with the v component of velocity vectors
     :param v0_coord:
+        (tuple) Coordinates of vector_0
     :param resultsDict:
+        (dict)
     :param r_max:
+        (int) maximum distance in pixels from v0 to calculate the angels for
     :param r_step:
+        (int) step size to grow the distance r by
     :param r_min:
-    :return: updated resultsDict with key:radius val:list of means for cos(theta) v_0-v_r
+        (int) starting distance from v0 to calculate the angels for
+    :return:
+        (dict) input resultDict updated with key = radius, value = list of means for cos(theta) v_0-v_r
+        {radius:[list of mean angles]}
     """
     assert u_array.shape == v_array.shape, "u and v component arrays have to have identical shapes"
 
@@ -227,7 +329,7 @@ def get_all_angles(u_array, v_array, v0_coord, resultsDict, r_max, r_step=1, r_m
         if len(coords) == 0:
             break  # stop when we run out of valid coordinates
         for c in coords:
-            if magnitudes[c] == 0:
+            if magnitudes[c] == 0: #avoid masked or erronious values
                 pass
             else:
                 c_vv = dot_products[c] / magnitudes[c]
