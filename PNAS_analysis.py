@@ -301,7 +301,7 @@ def do_it_all(indir, fname, outdir, maxFrameToAnalyze = 201, intervalSize = 10, 
         #plt.savefig(outdir + fname + "_iop.png", bbox_inches='tight', pad_inches=0)
         plt.close()
 
-    print("It took %.2f s to do Alignemt indexes, order params and speeds" % (t3))
+    print("It took %.2f s to do Alignent indexes, order params and speeds" % (t3))
     metaResults = {}
 
     for interval in range(0, arr_u.shape[0], intervalSize):
