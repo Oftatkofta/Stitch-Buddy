@@ -398,7 +398,7 @@ def do_it_all(indir, fname, outdir,
         arr = tif.asarray()
 
     arr = arr[0:maxFrameToAnalyze]
-    arr = arr.astype(np.int32)
+    arr = arr.astype(np.int32) #openPIV only works with 32bit arrays
 
 
     t1 = time.time()
@@ -470,9 +470,9 @@ def do_it_all(indir, fname, outdir,
 
         for t in range(tmp_u.shape[0]):
 
-            for diagonal in range(0, min(tmp_u.shape[1], tmp_u.shape[2])): #follow the diagonal
-                results = get_all_angles(tmp_u[t], tmp_v[t], (diagonal,diagonal), results,
-                                         r_max=r_max, r_step=r_step, r_min=1)
+             for diagonal in range(0, min(tmp_u.shape[1], tmp_u.shape[2])): #follow the diagonal
+                 results = get_all_angles(tmp_u[t], tmp_v[t], (diagonal,diagonal), results,
+                                          r_max=r_max, r_step=r_step, r_min=1)
 
         metaResults[interval] = dict(results)
 
@@ -504,11 +504,10 @@ def do_it_all(indir, fname, outdir,
             r.append(radius * px_scale)
             avg_angle.append(mean_angle_degrees)
 
-
             if (mean_angle_degrees + n_sigma * SEM_angles >= 90) and (interv not in lcorrs) and (len(r) != 0):
                 #TODO interval_center = interval + intervalWidth/2 * time_resolution
                 lcorrs[interv] = r[-1]
-                # print("%i-sigma reached at r=%i on interval %i, last significant distance was %.2f um" % (n_sigma, radius, interv, r[-1]))
+                print("%i-sigma reached at r=%i on interval %i, last significant distance was %.2f um" % (n_sigma, radius, interv, r[-1]))
 
 
         label = "interval: " + str(((interv) / time_resolution)) + " - " + \
@@ -517,7 +516,7 @@ def do_it_all(indir, fname, outdir,
 
         plt.plot(r, avg_angle, label=label)
 
-    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand")
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, mode="expand")
     plt.title("Average angle between velocity vectors " + fname[:6])
     plt.xlabel("Distance in um")
     plt.ylabel("Mean angle (degrees)")
@@ -531,7 +530,7 @@ def do_it_all(indir, fname, outdir,
     print("All done in %.2f s" % (time.time()-t0))
     plt.close()
 
-    return (inst_order_params, align_idxs, speeds, timepoints, lcorrs)
+    return (inst_order_params, align_idxs, speeds, timepoints, lcorrs, metaResults)
 
 
 
@@ -564,8 +563,8 @@ for fname in analysisfiles:
                                                                           r_max=300,
                                                                           r_step=1,
                                                                           n_sigma = 5,
-                                                                          intervalWidth=2,
-                                                                          saveFigFlag=True)
+                                                                          intervalWidth=5,
+                                                                          saveFigFlag=False)
 
     outfile = open(outdir+fname[:-4]+"_all_data.pickle", 'w')
     pickle.dump(dat, outfile)
